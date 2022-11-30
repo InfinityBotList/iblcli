@@ -26,10 +26,6 @@ var updateCmd = &cobra.Command{
 
 		url := helpers.GetAssetsURL() + "/shadowsight/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
-		if runtime.GOOS == "windows" {
-			url += ".exe"
-		}
-
 		fmt.Println("Downloading latest version from:", url)
 
 		bytes, err := helpers.DownloadFileWithProgress(url)
