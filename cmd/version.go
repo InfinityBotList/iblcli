@@ -15,7 +15,8 @@ var versionCmd = &cobra.Command{
 	Short: "Version Information",
 	Long:  `Version Information`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ibl", GitCommit)
+		fmt.Println("ibl:", GitCommit)
+		fmt.Println("seedApiVersion:", seedApiVer)
 	},
 }
 

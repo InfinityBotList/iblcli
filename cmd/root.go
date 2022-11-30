@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
@@ -26,7 +25,7 @@ func init() {
 	}
 
 	if GitCommit == "" {
-		GitCommit = runtime.Version()
+		GitCommit = "unknown"
 	}
 }
 
