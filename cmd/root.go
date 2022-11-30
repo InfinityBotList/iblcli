@@ -77,7 +77,7 @@ func init() {
 		err = os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
 		if err != nil {
 			fmt.Println("Error renaming file:", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 		// Exit
 		os.Exit(0)
