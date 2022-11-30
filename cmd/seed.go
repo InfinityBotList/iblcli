@@ -527,12 +527,17 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Create role root
-		_, err = pool.Exec(context.Background(), "CREATE ROLE IF NOT EXISTS root")
+		_, err = pool.Exec(context.Background(), "CREATE ROLE root")
 
+		// Check if error is role already exists
 		if err != nil {
-			fmt.Println("Failed to create role root:", err)
-			cleanup()
-			return
+			if !strings.Contains(err.Error(), "already exists") {
+				fmt.Println("Role root already exists, continuing...")
+			} else {
+				fmt.Println("Failed to create role root:", err)
+				cleanup()
+				return
+			}
 		}
 
 		_, err = pool.Exec(context.Background(), "DROP DATABASE infinity")
