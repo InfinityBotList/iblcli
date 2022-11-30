@@ -1,4 +1,4 @@
-module ibl
+module github.com/InfinityBotList/ibl
 
 go 1.19
 

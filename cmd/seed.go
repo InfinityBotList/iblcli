@@ -10,13 +10,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ibl/helpers"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/InfinityBotList/ibl/helpers"
 
 	"github.com/jackc/pgtype"
 	"github.com/spf13/cobra"
