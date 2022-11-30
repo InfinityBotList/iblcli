@@ -59,11 +59,13 @@ var newCmd = &cobra.Command{
 			}
 		}
 
+		cleanup()
+
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
 		if err != nil {
-			fmt.Println("Error creating work directory")
+			fmt.Println("Error creating work directory:", err)
 			cleanup()
 			return
 		}
@@ -351,11 +353,13 @@ var applyCmd = &cobra.Command{
 			}
 		}
 
+		cleanup()
+
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
 		if err != nil {
-			fmt.Println("Error creating work directory")
+			fmt.Println("Error creating work directory", err)
 			cleanup()
 			return
 		}
