@@ -531,10 +531,10 @@ var applyCmd = &cobra.Command{
 
 		// Check if error is role already exists
 		if err != nil {
-			if !strings.Contains(err.Error(), "already exists") {
+			if !strings.Contains(err.Error(), "SQLSTATE 42710") {
 				fmt.Println("Role root already exists, continuing...")
 			} else {
-				fmt.Println("Failed to create role root:", err)
+				fmt.Println("Failed to create non-existant role root:", err)
 				cleanup()
 				return
 			}
