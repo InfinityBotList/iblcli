@@ -180,10 +180,6 @@ var newCmd = &cobra.Command{
 			// Strip tokens from data
 			var parsedData = make(map[string]any)
 			for k, v := range data {
-				/*
-					if k == "premium_period_length" {
-						continue // Ignore column, is not supported
-					}*/
 				if k == "webhook" {
 					parsedData[k] = "https://testhook.xyz"
 				} else if strings.Contains(k, "token") || strings.Contains(k, "web") {
