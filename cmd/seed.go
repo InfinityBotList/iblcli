@@ -527,7 +527,7 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Create role root
-		_, err = pool.Exec(context.Background(), "CREATE ROLE root")
+		_, err = pool.Exec(context.Background(), "CREATE ROLE IF NOT EXISTS root")
 
 		if err != nil {
 			fmt.Println("Failed to create role root:", err)
