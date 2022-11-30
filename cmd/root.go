@@ -57,7 +57,6 @@ func init() {
 		fmt.Println("Update successful, now on version:", GitCommit)
 
 		// Try to kill the old process
-
 		proc, err := os.FindProcess(os.Getppid())
 
 		if err != nil {
