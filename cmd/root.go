@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -56,24 +57,11 @@ func init() {
 	if os.Getenv("IN_UPDATE") == "1" {
 		fmt.Println("Update successful, now on version:", GitCommit)
 
-		// Try to kill the old process
-		proc, err := os.FindProcess(os.Getppid())
-
-		if err != nil {
-			fmt.Println("Error finding parent process:", err)
-		}
-
-		err = proc.Signal(os.Interrupt)
-
-		if err != nil {
-			fmt.Println("Error killing parent process:", err)
-		}
-
-		// Wait for the parent process to die
-		proc.Wait()
+		// Give time for old process to exit
+		time.Sleep(500 * time.Millisecond)
 
 		// Rename new binary
-		err = os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
+		err := os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
 		if err != nil {
 			fmt.Println("Error renaming file:", err)
 			os.Exit(1)

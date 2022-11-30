@@ -96,7 +96,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		// Spawn new process
-		proc, err := os.StartProcess(pcPath+".new", os.Args, &os.ProcAttr{
+		_, err = os.StartProcess(pcPath+".new", os.Args, &os.ProcAttr{
 			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 			Env:   env,
 		})
@@ -106,13 +106,7 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		// Wait for the new process to exit
-		_, err = proc.Wait()
-
-		if err != nil {
-			fmt.Println("Error waiting for new process:", err)
-			return
-		}
+		os.Exit(0)
 	},
 }
 
