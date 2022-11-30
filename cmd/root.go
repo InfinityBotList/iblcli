@@ -61,12 +61,8 @@ func init() {
 		time.Sleep(500 * time.Millisecond)
 
 		// Rename new binary
-		err := os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
-		if err != nil {
-			fmt.Println("Error renaming file:", err)
-			os.Exit(1)
-		}
-		// Exit
+		os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
+		os.Rename(os.Getenv("PC_PATH")+".new.exe", os.Getenv("PC_PATH"))
 		os.Exit(0)
 	}
 

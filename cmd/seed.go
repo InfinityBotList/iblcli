@@ -342,8 +342,13 @@ var applyCmd = &cobra.Command{
 	Short:   "Apply a seed to the database. You must specify either 'latest' or the path to a seed file.",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		var seedf *os.File
 		cleanup := func() {
 			fmt.Println("Cleaning up...")
+
+			if seedf != nil {
+				seedf.Close()
+			}
 
 			// delete all files in work directory
 			err := os.RemoveAll("work")
@@ -402,7 +407,7 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Open seed file
-		f, err := os.Open(seedFile)
+		seedf, err = os.Open(seedFile)
 
 		if err != nil {
 			fmt.Println("Failed to open seed file:", err)
@@ -410,11 +415,9 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		defer f.Close()
-
 		// Extract seed file using lzw to buffer
 		tarBuf := bytes.NewBuffer([]byte{})
-		r := lzw.NewReader(f, lzw.LSB, 8)
+		r := lzw.NewReader(seedf, lzw.LSB, 8)
 
 		_, err = io.Copy(tarBuf, r)
 
