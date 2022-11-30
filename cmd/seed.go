@@ -558,19 +558,28 @@ var applyCmd = &cobra.Command{
 
 		if exists {
 			// Check seed_info table for nonce
-			var nonce string
-
-			err = pool.QueryRow(context.Background(), "SELECT nonce FROM seed_info").Scan(&nonce)
+			iblPool, err := helpers.GetPool()
 
 			if err != nil {
-				fmt.Println("Failed to check seed_info table:", err, ". Ignoring...")
+				fmt.Println("Failed to acquire iblPool:", err, "Ignoring...")
 			} else {
-				if nonce == md.Nonce {
-					fmt.Println("You are on the latest seed already!")
-					cleanup()
-					return
+
+				var nonce string
+
+				err = iblPool.QueryRow(context.Background(), "SELECT nonce FROM seed_info").Scan(&nonce)
+
+				if err != nil {
+					fmt.Println("Failed to check seed_info table:", err, ". Ignoring...")
+				} else {
+					if nonce == md.Nonce {
+						fmt.Println("You are on the latest seed already!")
+						cleanup()
+						return
+					}
 				}
 			}
+
+			iblPool.Close()
 		}
 
 		// Create role root
