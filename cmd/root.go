@@ -70,17 +70,14 @@ func init() {
 			fmt.Println("Error killing parent process:", err)
 		}
 
-		// Delete old binary
-		err = os.Remove(os.Getenv("PC_PATH"))
-		if err != nil {
-			fmt.Println("Error renaming file:", err)
-			return
-		}
+		// Wait for the parent process to die
+		proc.Wait()
+
 		// Rename new binary
 		err = os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
 		if err != nil {
 			fmt.Println("Error renaming file:", err)
-			return
+			os.Exit(0)
 		}
 		// Exit
 		os.Exit(0)

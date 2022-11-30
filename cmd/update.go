@@ -42,7 +42,7 @@ var updateCmd = &cobra.Command{
 		pcPath := binFileName
 
 		// Check for ~/go/bin
-		_, err = os.Stat(os.Getenv("HOME") + "/go/bin")
+		_, err = os.Stat(os.Getenv("HOME") + "/go/bin/" + binFileName)
 
 		if err == nil {
 			pcPath = os.Getenv("HOME") + "/go/bin/" + binFileName
@@ -55,12 +55,17 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		defer f.Close()
-
 		_, err = f.Write(bytes)
 
 		if err != nil {
 			fmt.Println("Error writing file:", err)
+			return
+		}
+
+		err = f.Close()
+
+		if err != nil {
+			fmt.Println("Error closing file:", err)
 			return
 		}
 
@@ -82,13 +87,18 @@ var updateCmd = &cobra.Command{
 			being deleted
 		*/
 
+		fmt.Println("Created new binary, now replacing old one")
+
 		// Set env var to 1
-		os.Setenv("IN_UPDATE", "1")
-		os.Setenv("PC_PATH", pcPath)
+		env := []string{
+			"IN_UPDATE=1",
+			"PC_PATH=" + pcPath,
+		}
 
 		// Spawn new process
 		proc, err := os.StartProcess(pcPath+".new", os.Args, &os.ProcAttr{
 			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+			Env:   env,
 		})
 
 		if err != nil {
