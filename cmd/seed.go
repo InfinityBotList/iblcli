@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
+Copyright © 2022 Infinity Bot List
 */
 package cmd
 
@@ -511,6 +511,25 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
+		// Extract out md
+		mdBuf, ok := files["md"]
+
+		if !ok {
+			fmt.Println("Seed file is corrupt [no md]")
+			cleanup()
+			return
+		}
+
+		var md Meta
+
+		err = json.Unmarshal(mdBuf.Bytes(), &md)
+
+		if err != nil {
+			fmt.Println("Failed to unmarshal md:", err)
+			cleanup()
+			return
+		}
+
 		// Ensure PGDATABASE is NOT set
 		os.Unsetenv("PGDATABASE")
 
@@ -520,6 +539,34 @@ var applyCmd = &cobra.Command{
 			fmt.Println("Failed to acquire database pool:", err)
 			cleanup()
 			return
+		}
+
+		// Check if a infinity database already exists
+		var exists bool
+
+		err = pool.QueryRow(context.Background(), "SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = 'infinity')").Scan(&exists)
+
+		if err != nil {
+			fmt.Println("Failed to check if infinity database exists:", err)
+			cleanup()
+			return
+		}
+
+		if exists {
+			// Check seed_info table for nonce
+			var nonce string
+
+			err = pool.QueryRow(context.Background(), "SELECT nonce FROM seed_info").Scan(&nonce)
+
+			if err != nil {
+				fmt.Println("Failed to check seed_info table:", err, ". Ignoring...")
+			} else {
+				if nonce == md.Nonce {
+					fmt.Println("You are on the latest seed already!")
+					cleanup()
+					return
+				}
+			}
 		}
 
 		// Create role root
@@ -580,25 +627,6 @@ var applyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to acquire database pool for newly created database:", err)
-			cleanup()
-			return
-		}
-
-		// Extract out md
-		mdBuf, ok := files["md"]
-
-		if !ok {
-			fmt.Println("Seed file is corrupt [no md]")
-			cleanup()
-			return
-		}
-
-		var md Meta
-
-		err = json.Unmarshal(mdBuf.Bytes(), &md)
-
-		if err != nil {
-			fmt.Println("Failed to unmarshal md:", err)
 			cleanup()
 			return
 		}

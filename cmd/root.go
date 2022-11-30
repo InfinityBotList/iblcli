@@ -4,10 +4,20 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
+
+// Store git commit hash
+var GitCommit string
+
+func init() {
+	// Use runtime to get the git commit hash
+	GitCommit = runtime.Version()
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -33,6 +43,39 @@ func Execute() {
 }
 
 func init() {
+	if os.Getenv("IN_UPDATE") == "1" {
+		fmt.Println("Update successful, now on version:", GitCommit)
+
+		// Try to kill the old process
+
+		proc, err := os.FindProcess(os.Getppid())
+
+		if err != nil {
+			fmt.Println("Error finding parent process:", err)
+		}
+
+		err = proc.Kill()
+
+		if err != nil {
+			fmt.Println("Error killing parent process:", err)
+		}
+
+		// Delete old binary
+		err = os.Remove("ibl")
+		if err != nil {
+			fmt.Println("Error renaming file:", err)
+			return
+		}
+		// Rename new binary
+		err = os.Rename("ibl.new", "ibl")
+		if err != nil {
+			fmt.Println("Error renaming file:", err)
+			return
+		}
+		// Exit
+		os.Exit(0)
+	}
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
