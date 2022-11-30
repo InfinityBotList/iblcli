@@ -370,19 +370,6 @@ var applyCmd = &cobra.Command{
 		assetsUrl := helpers.GetAssetsURL()
 
 		if seedFile == "latest" {
-			// Ensure temp.iblseed is removed if it exists
-			_, err := os.Stat("temp.iblseed")
-
-			if err == nil {
-				err = os.Remove("temp.iblseed")
-
-				if err != nil {
-					fmt.Println("Failed to remove temp seed:", err)
-					cleanup()
-					return
-				}
-			}
-
 			// Download seedfile with progress bar
 			data, err := helpers.DownloadFileWithProgress(assetsUrl + "/seed.iblseed")
 
@@ -393,7 +380,7 @@ var applyCmd = &cobra.Command{
 			}
 
 			// Write seedfile to disk as temp.iblseed
-			f, err := os.Create("temp.iblseed")
+			f, err := os.Create("work/temp.iblseed")
 
 			if err != nil {
 				fmt.Println("Failed to create temp file:", err)
@@ -411,7 +398,7 @@ var applyCmd = &cobra.Command{
 				return
 			}
 
-			seedFile = "temp.iblseed"
+			seedFile = "work/temp.iblseed"
 		}
 
 		// Open seed file
@@ -709,6 +696,7 @@ var applyCmd = &cobra.Command{
 			}
 		}
 
+		cleanup()
 	},
 }
 
