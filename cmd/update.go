@@ -39,7 +39,16 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		f, err := os.Create(binFileName + ".new")
+		pcPath := binFileName
+
+		// Check for ~/go/bin
+		_, err = os.Stat(os.Getenv("HOME") + "/go/bin")
+
+		if err == nil {
+			pcPath = os.Getenv("HOME") + "/go/bin/" + binFileName
+		}
+
+		f, err := os.Create(pcPath + ".new")
 
 		if err != nil {
 			fmt.Println("Error creating file:", err)
@@ -56,7 +65,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		// Set file permissions to executable
-		err = os.Chmod(binFileName+".new", 0755)
+		err = os.Chmod(pcPath+".new", 0755)
 
 		if err != nil {
 			fmt.Println("Error setting file permissions:", err)
@@ -75,9 +84,10 @@ var updateCmd = &cobra.Command{
 
 		// Set env var to 1
 		os.Setenv("IN_UPDATE", "1")
+		os.Setenv("PC_PATH", pcPath)
 
 		// Spawn new process
-		proc, err := os.StartProcess(binFileName+".new", os.Args, &os.ProcAttr{
+		proc, err := os.StartProcess(pcPath+".new", os.Args, &os.ProcAttr{
 			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 		})
 

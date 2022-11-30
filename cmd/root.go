@@ -61,13 +61,13 @@ func init() {
 		}
 
 		// Delete old binary
-		err = os.Remove("ibl")
+		err = os.Remove(os.Getenv("PC_PATH"))
 		if err != nil {
 			fmt.Println("Error renaming file:", err)
 			return
 		}
 		// Rename new binary
-		err = os.Rename("ibl.new", "ibl")
+		err = os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
 		if err != nil {
 			fmt.Println("Error renaming file:", err)
 			return
