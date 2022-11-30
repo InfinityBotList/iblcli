@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 )
@@ -15,8 +16,18 @@ import (
 var GitCommit string
 
 func init() {
-	// Use runtime to get the git commit hash
-	GitCommit = runtime.Version()
+	// Use runtime/debug vcs.revision to get the git commit hash
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				GitCommit = setting.Value
+			}
+		}
+	}
+
+	if GitCommit == "" {
+		GitCommit = runtime.Version()
+	}
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -54,7 +65,7 @@ func init() {
 			fmt.Println("Error finding parent process:", err)
 		}
 
-		err = proc.Kill()
+		err = proc.Signal(os.Interrupt)
 
 		if err != nil {
 			fmt.Println("Error killing parent process:", err)
