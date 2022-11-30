@@ -55,6 +55,14 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
+		// Set file permissions to executable
+		err = os.Chmod(binFileName+".new", 0755)
+
+		if err != nil {
+			fmt.Println("Error setting file permissions:", err)
+			return
+		}
+
 		/*
 			Spawn new process using os
 			This is so we can delete the old binary
