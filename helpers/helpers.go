@@ -133,3 +133,30 @@ func MapKeys[T any](m map[string]T) []string {
 	}
 	return keys
 }
+
+// Returns the config folder path, this is lowlevel and GetConfigDirAndCreate should be used instead
+func getConfigDir() string {
+	if os.Getenv("CONFIG_DIR") != "" {
+		return os.Getenv("CONFIG_DIR")
+	} else {
+		// Check for HOME env
+		if os.Getenv("HOME") != "" {
+			return os.Getenv("HOME") + "/.config/infinity"
+		} else {
+			return "./config"
+		}
+	}
+}
+
+// Creates and returns the config folder path
+func GetConfigDirAndCreate() (string, error) {
+	dir := getConfigDir()
+	err := os.MkdirAll(dir, 0600)
+
+	if err == nil {
+		// So ensure that the dir is 0600
+		err = os.Chmod(dir, 0600)
+	}
+
+	return dir, err
+}
