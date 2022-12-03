@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -49,4 +50,28 @@ func (c *ConfigRemote) Connect() (*ssh.Client, error) {
 	}
 
 	return client, nil
+}
+
+func GetRemote() (ConfigRemote, error) {
+	configPath, err := GetConfigDirAndCreate()
+
+	if err != nil {
+		return ConfigRemote{}, err
+	}
+
+	bytes, err := os.ReadFile(configPath + "/remote")
+
+	if err != nil {
+		return ConfigRemote{}, err
+	}
+
+	var cfg ConfigRemote
+
+	err = json.Unmarshal(bytes, &cfg)
+
+	if err != nil {
+		return ConfigRemote{}, err
+	}
+
+	return cfg, nil
 }
