@@ -16,7 +16,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-// Creates a env based on os.Environ
+// Creates a env based on os.Environ()
 func GetEnv() []string {
 	var env []string = make([]string, 0)
 	if os.Getenv("PGDATABASE") != "" {
