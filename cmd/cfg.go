@@ -1,31 +1,31 @@
 /*
 Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 // cfgCmd represents the cfg command
 var cfgCmd = &cobra.Command{
 	Use:   "cfg",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Configuration system",
+	Long:  `Configure the "ibl" client (authentication and other settings).`,
+}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("cfg called")
-	},
+var loginCmd = &cobra.Command{
+	Use:     "login TYPE ID TOKEN",
+	Short:   "Login to the IBL API",
+	Long:    `Login to the IBL API using a bot or user token.`,
+	Aliases: []string{"auth", "a", "l"},
+	Args:    cobra.ExactArgs(3),
+	Run:     func(cmd *cobra.Command, args []string) {},
 }
 
 func init() {
+	// login
+	cfgCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(cfgCmd)
 
 	// Here you will define your flags and configuration settings.
