@@ -41,7 +41,7 @@ var updateCmd = &cobra.Command{
 			panic(err)
 		}
 		pcPath := filepath.Dir(ex) + "/" + os.Args[0]
-		fmt.Println("UpdateBin:", pcPath)
+		fmt.Println("UpdateBinary:", pcPath)
 
 		fmt.Println(os.Args[0])
 
