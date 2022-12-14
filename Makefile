@@ -4,7 +4,8 @@
 
 BUILDREV := $(shell uuidgen)
 BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
-GOFLAGS := -ldflags="-X 'github.com/InfinityBotList/ibl/cmd.BuildRev=$(BUILDREV)' -X 'github.com/InfinityBotList/ibl/cmd.BuildTime=$(BUILDTIME)'"
+REPONAME := github.com/InfinityBotList/ibl
+GOFLAGS := -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
 
 COMBOS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386
 
