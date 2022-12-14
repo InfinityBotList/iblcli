@@ -6,11 +6,12 @@ BUILDREV := $(shell uuidgen)
 BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
 REPONAME := github.com/InfinityBotList/ibl
 GOFLAGS := -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
+GOFLAGS_DBG := -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
 
 COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386
 
 all:
-	go build -v $(GOFLAGS)
+	go build -v $(GOFLAGS_DBG)
 publish:
 	mkdir -p bin
 
