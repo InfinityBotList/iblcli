@@ -337,7 +337,7 @@ var newCmd = &cobra.Command{
 }
 
 var applyCmd = &cobra.Command{
-	Use:     "apply",
+	Use:     "apply FILENAME",
 	Example: "apply latest",
 	Short:   "Apply a seed to the database. You must specify either 'latest' or the path to a seed file.",
 	Args:    cobra.ExactArgs(1),
