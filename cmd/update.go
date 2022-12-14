@@ -99,7 +99,7 @@ var updateCmd = &cobra.Command{
 			being deleted
 		*/
 
-		fmt.Println("Created new binary, now replacing old one")
+		fmt.Println("Created new binary, now replacing old one, pcPath=", pcPath)
 
 		// Set env var to 1
 		env := []string{
