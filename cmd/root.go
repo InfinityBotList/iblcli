@@ -59,7 +59,7 @@ func Execute() {
 
 func init() {
 	if os.Getenv("IN_UPDATE") == "1" {
-		fmt.Println("Update successful! Info:\nversion:", GitCommit, "| pcPath:", os.Getenv("PC_PATH"), "| buildRev:", BuildRev, "| buildTime:", BuildTime)
+		fmt.Println("Update successful!\n\nversion:", GitCommit, "| pcPath:", os.Getenv("PC_PATH"), "| buildRev:", BuildRev, "| buildTime:", BuildTime)
 
 		// Give time for old process to exit
 		time.Sleep(500 * time.Millisecond)
