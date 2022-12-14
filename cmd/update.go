@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/spf13/cobra"
@@ -15,10 +16,37 @@ import (
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Updates IBL CLI",
-	Long:  `Updates IBL CLI to the latest version.`,
+	Use:     "update",
+	Short:   "Updates IBL CLI",
+	Long:    `Updates IBL CLI to the latest version.`,
+	Aliases: []string{"u", "upd"},
 	Run: func(cmd *cobra.Command, args []string) {
+		// Check if an update is even required
+		fmt.Println("Checking for updates...")
+		currRev, err := helpers.DownloadFileWithProgress(helpers.GetAssetsURL() + "/shadowsight/current_rev")
+
+		if err != nil {
+			fmt.Println("Error checking for updates:", err)
+			return
+		}
+
+		if string(currRev) == BuildRev {
+			fmt.Println("You are already on the latest version!")
+			return
+		}
+
+		fmt.Println("Updating to version", string(currRev))
+		fmt.Println("Continue? (y/n)")
+
+		var input string
+
+		fmt.Scanln(&input)
+
+		if strings.ToLower(input) != "y" && strings.ToLower(input) != "yes" {
+			fmt.Println("Update cancelled")
+			return
+		}
+
 		binFileName := "ibl"
 
 		if runtime.GOOS == "windows" {

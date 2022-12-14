@@ -27,4 +27,5 @@ publish:
 	rm -rf /iblseeds/shadowsight
 	mkdir -p /iblseeds/shadowsight
 	mv -vf bin/* /iblseeds/shadowsight
+	echo $(BUILDREV) > /iblseeds/shadowsight/current_rev
 	rm -rf bin
