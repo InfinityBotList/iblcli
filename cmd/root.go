@@ -12,8 +12,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Store git commit hash
-var GitCommit string
+var (
+	// Store git commit hash
+	GitCommit string
+	// This is gotten through ldflags
+	BuildRev string
+	// Build time is the time the binary was built
+	BuildTime string
+)
 
 func init() {
 	// Use runtime/debug vcs.revision to get the git commit hash
@@ -53,7 +59,7 @@ func Execute() {
 
 func init() {
 	if os.Getenv("IN_UPDATE") == "1" {
-		fmt.Println("Update successful, now on version:", GitCommit, "pcPath:", os.Getenv("PC_PATH"))
+		fmt.Println("Update successful, now on version:", GitCommit, "pcPath:", os.Getenv("PC_PATH"), "| buildRev:", BuildRev, "| buildTime:", BuildTime)
 
 		// Give time for old process to exit
 		time.Sleep(500 * time.Millisecond)

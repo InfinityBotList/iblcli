@@ -1,11 +1,28 @@
+# Build revision should be unique for each build AND not the git commit hash
+# because we want to be able to build the same commit multiple times and
+# have the build revision be different each time.
+
+BUILDREV := $(shell uuidgen)
+BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
+GOFLAGS := -ldflags="-X 'github.com/InfinityBotList/ibl/cmd.BuildRev=$(BUILDREV)' -X 'github.com/InfinityBotList/ibl/cmd.BuildTime=$(BUILDTIME)'"
+
+COMBOS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386
+
 all:
-	go build -v
+	go build -v $(GOFLAGS)
 publish:
-	mkdir -p bin bin/linux bin/darwin bin/windows
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/linux/amd64/ibl
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/darwin/amd64/ibl
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/darwin/arm64/ibl
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/windows/amd64/ibl.exe
+	mkdir bin
+
+	for combo in $(COMBOS); do \
+		echo "$$combo"; \
+		CGO_ENABLED=0 GOOS=$${combo%/*} GOARCH=$${combo#*/} go build -o bin/$$combo/ibl $(GOFLAGS); \
+	done
+
+	# Rename all the windows binaries to .exe
+	for folder in bin/windows/*; do \
+		mv -vf $$folder/ibl $$folder/ibl.exe; \
+	done
+
 	rm -rf /iblseeds/shadowsight
 	mkdir -p /iblseeds/shadowsight
 	mv -vf bin/* /iblseeds/shadowsight

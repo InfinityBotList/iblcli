@@ -11,12 +11,18 @@ import (
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Version Information",
-	Long:  `Version Information`,
+	Use:     "version",
+	Short:   "Version Information",
+	Long:    `Version Information`,
+	Aliases: []string{"v"},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ibl:", GitCommit)
+		fmt.Println("version:", GitCommit)
+		fmt.Println("buildRev:", BuildRev)
+		fmt.Println("buildTime:", BuildTime)
 		fmt.Println("seedApiVersion:", seedApiVer)
+
+		fmt.Println("\nCopyright © 2022 Infinity Bot List")
+		fmt.Println("Licensed under the MIT license. See LICENSE file in the project root for full license information.")
 	},
 }
 
