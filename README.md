@@ -5,3 +5,7 @@ IBL is a simple utility to make development of Infinity Bot List easier as well 
 For more information, try running "ibl --help"
 
 If you wish to add a new command, use "~/go/bin/cobra-cli add"
+
+## Installation
+
+See https://ptb.botlist.app
