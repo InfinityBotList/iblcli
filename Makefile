@@ -17,6 +17,7 @@ publish:
 	for combo in $(COMBOS); do \
 		echo "$$combo"; \
 		CGO_ENABLED=0 GOOS=$${combo%/*} GOARCH=$${combo#*/} go build -o bin/$$combo/ibl $(GOFLAGS); \
+		upx -9 bin/$$combo/ibl; \
 	done
 
 	# Rename all the windows binaries to .exe
