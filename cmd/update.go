@@ -36,19 +36,22 @@ var updateCmd = &cobra.Command{
 		}
 
 		pcPath := binFileName
+		gotPath := false
 
 		// Check for /usr/bin
 		_, err = os.Stat("/usr/bin/" + binFileName)
 
 		if err == nil {
 			pcPath = "/usr/bin/" + binFileName
+			gotPath = true
 		}
 
 		// Check for ~/go/bin
 		_, err = os.Stat(os.Getenv("HOME") + "/go/bin/" + binFileName)
 
-		if err == nil {
+		if err == nil && !gotPath {
 			pcPath = os.Getenv("HOME") + "/go/bin/" + binFileName
+			gotPath = true
 		}
 
 		var path string
