@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -21,6 +20,8 @@ var updateCmd = &cobra.Command{
 	Long:    `Updates IBL CLI to the latest version.`,
 	Aliases: []string{"u", "upd"},
 	Run: func(cmd *cobra.Command, args []string) {
+		force := cmd.Flag("force").Value.String()
+
 		// Check if an update is even required
 		updCheckUrl := helpers.GetAssetsURL() + "/shadowsight/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
@@ -33,7 +34,12 @@ var updateCmd = &cobra.Command{
 
 		if string(currRev) == BuildRev {
 			fmt.Println("You are already on the latest version!")
-			return
+
+			if force == "true" {
+				fmt.Println("Force flag set, continuing")
+			} else {
+				return
+			}
 		}
 
 		fmt.Println("Updating to version", string(currRev))
@@ -65,14 +71,11 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		ex, err := os.Executable()
+		pcPath, err := os.Executable()
 		if err != nil {
 			panic(err)
 		}
-		pcPath := filepath.Dir(ex) + "/" + os.Args[0]
 		fmt.Println("UpdateBinary:", pcPath)
-
-		fmt.Println(os.Args[0])
 
 		var path string
 		if runtime.GOOS == "windows" {
@@ -150,7 +153,7 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	// updateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
+	logCmd.Flags().BoolP("force", "f", false, "Force a update/redownload even if the latest version is already installed")
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// updateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
