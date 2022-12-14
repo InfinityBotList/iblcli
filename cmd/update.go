@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/InfinityBotList/ibl/helpers"
@@ -35,24 +36,14 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		pcPath := binFileName
-		gotPath := false
-
-		// Check for /usr/bin
-		_, err = os.Stat("/usr/bin/" + binFileName)
-
-		if err == nil {
-			pcPath = "/usr/bin/" + binFileName
-			gotPath = true
+		ex, err := os.Executable()
+		if err != nil {
+			panic(err)
 		}
+		pcPath := filepath.Dir(ex)
+		fmt.Println("UpdateBin:", pcPath)
 
-		// Check for ~/go/bin
-		_, err = os.Stat(os.Getenv("HOME") + "/go/bin/" + binFileName)
-
-		if err == nil && !gotPath {
-			pcPath = os.Getenv("HOME") + "/go/bin/" + binFileName
-			gotPath = true
-		}
+		fmt.Println(os.Args[0])
 
 		var path string
 		if runtime.GOOS == "windows" {
