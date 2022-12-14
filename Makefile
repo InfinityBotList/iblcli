@@ -5,7 +5,7 @@
 BUILDREV := $(shell uuidgen)
 BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
 REPONAME := github.com/InfinityBotList/ibl
-GOFLAGS := -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
+GOFLAGS := -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
 
 COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386
 
@@ -27,5 +27,5 @@ publish:
 	rm -rf /iblseeds/shadowsight
 	mkdir -p /iblseeds/shadowsight
 	mv -vf bin/* /iblseeds/shadowsight
-	echo $(BUILDREV) > /iblseeds/shadowsight/current_rev
+	echo -n $(BUILDREV) > /iblseeds/shadowsight/current_rev
 	rm -rf bin

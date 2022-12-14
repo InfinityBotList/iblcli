@@ -22,8 +22,9 @@ var updateCmd = &cobra.Command{
 	Aliases: []string{"u", "upd"},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if an update is even required
-		fmt.Println("Checking for updates...")
-		currRev, err := helpers.DownloadFileWithProgress(helpers.GetAssetsURL() + "/shadowsight/current_rev")
+		updCheckUrl := helpers.GetAssetsURL() + "/shadowsight/current_rev"
+		fmt.Println("Checking for updates (url: " + updCheckUrl)
+		currRev, err := helpers.DownloadFileWithProgress(updCheckUrl)
 
 		if err != nil {
 			fmt.Println("Error checking for updates:", err)
@@ -36,7 +37,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		fmt.Println("Updating to version", string(currRev))
-		fmt.Println("Continue? (y/n)")
+		fmt.Print("Continue? [y/N]: ")
 
 		var input string
 
