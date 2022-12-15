@@ -33,7 +33,7 @@ type SourceParsed struct {
 	Table string
 }
 
-const seedApiVer = "ravenpaw"
+const seedApiVer = "sandstorm"
 
 // seedCmd represents the seed command
 var seedCmd = &cobra.Command{
@@ -241,7 +241,7 @@ var newCmd = &cobra.Command{
 		tarWriter := tar.NewWriter(tarFile)
 
 		// Write sample buf to tar file
-		err = helpers.TarAddBuf(tarWriter, sampleBuf, "sample")
+		err = helpers.TarAddBuf(tarWriter, sampleBuf, "data")
 
 		if err != nil {
 			fmt.Println("Failed to write sample data to tar file:", err)
@@ -250,7 +250,7 @@ var newCmd = &cobra.Command{
 		}
 
 		// Write metadata buf to tar file
-		err = helpers.TarAddBuf(tarWriter, mdBuf, "md")
+		err = helpers.TarAddBuf(tarWriter, mdBuf, "meta")
 
 		if err != nil {
 			fmt.Println("Failed to write metadata to tar file:", err)
@@ -506,10 +506,10 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Extract out md
-		mdBuf, ok := files["md"]
+		mdBuf, ok := files["meta"]
 
 		if !ok {
-			fmt.Println("Seed file is corrupt [no md]")
+			fmt.Println("Seed file is corrupt [no meta]")
 			cleanup()
 			return
 		}
@@ -519,7 +519,7 @@ var applyCmd = &cobra.Command{
 		err = json.Unmarshal(mdBuf.Bytes(), &md)
 
 		if err != nil {
-			fmt.Println("Failed to unmarshal md:", err)
+			fmt.Println("Failed to unmarshal meta:", err)
 			cleanup()
 			return
 		}
@@ -628,10 +628,10 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Now finally extract out seed data
-		seedBuf, ok := files["sample"]
+		seedBuf, ok := files["data"]
 
 		if !ok {
-			fmt.Println("Seed file is corrupt [no sample]")
+			fmt.Println("Seed file is corrupt [no data]")
 			cleanup()
 			return
 		}
