@@ -24,6 +24,7 @@ require (
 )
 
 require (
+	github.com/fynelabs/selfupdate v0.1.0
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect

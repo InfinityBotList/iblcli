@@ -4,12 +4,13 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/fynelabs/selfupdate"
 	"github.com/spf13/cobra"
 )
 
@@ -64,84 +65,20 @@ var updateCmd = &cobra.Command{
 
 		fmt.Println("Downloading latest version from:", url)
 
-		bytes, err := helpers.DownloadFileWithProgress(url)
+		execBytes, err := helpers.DownloadFileWithProgress(url)
 
 		if err != nil {
 			fmt.Println("Error downloading file:", err)
 			return
 		}
 
-		pcPath, err := os.Executable()
+		err = selfupdate.Apply(bytes.NewReader(execBytes), selfupdate.Options{})
 		if err != nil {
-			panic(err)
-		}
-		fmt.Println("UpdateBinary:", pcPath)
-
-		var path string
-		if runtime.GOOS == "windows" {
-			path = pcPath + ".new.exe"
-		} else {
-			path = pcPath + ".new"
-		}
-		f, err := os.Create(path)
-
-		if err != nil {
-			fmt.Println("Error creating file:", err)
-			return
+			// error handling
+			fmt.Println("Error updating:", err)
 		}
 
-		_, err = f.Write(bytes)
-
-		if err != nil {
-			fmt.Println("Error writing file:", err)
-			return
-		}
-
-		err = f.Close()
-
-		if err != nil {
-			fmt.Println("Error closing file:", err)
-			return
-		}
-
-		// Set file permissions to executable
-		err = os.Chmod(path, 0755)
-
-		if err != nil {
-			fmt.Println("Error setting file permissions:", err)
-			return
-		}
-
-		/*
-			Spawn new process using os
-			This is so we can delete the old binary
-			and rename the new one
-
-			This is also so we can exit the program
-			and not have to worry about the old binary
-			being deleted
-		*/
-
-		fmt.Println("Created new binary, now replacing old one, pcPath:", pcPath)
-
-		// Set env var to 1
-		env := []string{
-			"IN_UPDATE=1",
-			"PC_PATH=" + pcPath,
-		}
-
-		// Spawn new process
-		_, err = os.StartProcess(path, os.Args, &os.ProcAttr{
-			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-			Env:   env,
-		})
-
-		if err != nil {
-			fmt.Println("Error spawning new process:", err)
-			return
-		}
-
-		os.Exit(0)
+		fmt.Println("Updated successfully!")
 	},
 }
 
