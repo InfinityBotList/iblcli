@@ -427,6 +427,11 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
+		// Get size of decompressed file
+		tarSize := tarBuf.Len()
+
+		fmt.Println("Decompressed size: ", tarSize, "bytes")
+
 		// Extract tar file to map of buffers
 		tarReader := tar.NewReader(tarBuf)
 
