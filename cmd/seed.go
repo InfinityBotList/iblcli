@@ -536,8 +536,6 @@ var applyCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Println("Using pass:", ePass)
-
 		// Decrypt seed data
 		ePassHashed := helpers.GenKey(ePass, md.EncryptionSalt)
 		seedData, err := helpers.Decrypt([]byte(ePassHashed), seedBuf.Bytes())
