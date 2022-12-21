@@ -26,6 +26,7 @@ require (
 require (
 	github.com/fynelabs/selfupdate v0.1.0
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/infinitybotlist/eureka v0.0.0-20221203142608-7547b65265c4
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/schollz/progressbar/v3 v3.12.1

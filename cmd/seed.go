@@ -18,14 +18,18 @@ import (
 	"time"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/infinitybotlist/eureka/crypto"
 
 	"github.com/jackc/pgtype"
 	"github.com/spf13/cobra"
 )
 
 type Meta struct {
-	CreatedAt time.Time
-	Nonce     string
+	CreatedAt           time.Time `json:"c"`
+	Nonce               string    `json:"n"`
+	CustomEncryptionKey bool      `json:"e"`
+	SeedVer             string    `json:"v"`
+	EncryptionSalt      string    `json:"s"`
 }
 
 type SourceParsed struct {
@@ -33,7 +37,7 @@ type SourceParsed struct {
 	Table string
 }
 
-const seedApiVer = "sandstorm"
+const seedApiVer = "popplio-e1" // e means encryption protocol version
 
 // seedCmd represents the seed command
 var seedCmd = &cobra.Command{
@@ -57,6 +61,20 @@ var newCmd = &cobra.Command{
 			if err != nil {
 				fmt.Println("Error cleaning up:", err)
 			}
+		}
+
+		var ePass string
+		encrypt := cmd.Flag("encrypt").Value.String()
+		ePassCmd := cmd.Flag("password").Value.String()
+
+		if encrypt == "true" {
+			if ePassCmd == "" {
+				ePass = helpers.GetPassword("Enter encryption password: ")
+			} else {
+				ePass = ePassCmd
+			}
+		} else {
+			ePass = "ibl"
 		}
 
 		cleanup()
@@ -173,7 +191,7 @@ var newCmd = &cobra.Command{
 				if k == "webhook" {
 					parsedData[k] = "https://testhook.xyz"
 				} else if strings.Contains(k, "token") || strings.Contains(k, "web") {
-					parsedData[k] = helpers.RandString(128)
+					parsedData[k] = crypto.RandString(128)
 				} else if strings.Contains(k, "unique") {
 					parsedData[k] = []any{}
 				} else {
@@ -198,13 +216,29 @@ var newCmd = &cobra.Command{
 			return
 		}
 
+		// Encrypt sample data
+		salt := crypto.RandString(8)
+		ePassHashed := helpers.GenKey(ePass, salt)
+		sampleBufB, err := helpers.Encrypt([]byte(ePassHashed), sampleBuf.Bytes())
+
+		if err != nil {
+			fmt.Println("Failed to encrypt sample data:", err)
+			cleanup()
+			return
+		}
+
+		sampleBuf = bytes.NewBuffer(sampleBufB)
+
 		// Write metadata to buffer
 		mdBuf := bytes.NewBuffer([]byte{})
 
 		// Write metadata to md file
 		metadata := Meta{
-			CreatedAt: time.Now(),
-			Nonce:     helpers.RandString(32),
+			CreatedAt:           time.Now(),
+			Nonce:               crypto.RandString(32),
+			CustomEncryptionKey: encrypt == "true",
+			SeedVer:             seedApiVer,
+			EncryptionSalt:      salt,
 		}
 
 		enc = json.NewEncoder(mdBuf)
@@ -266,19 +300,20 @@ var newCmd = &cobra.Command{
 			return
 		}
 
-		err = helpers.TarAddBuf(tarWriter, schemaBuf, "schema")
+		schemaBufB, err := helpers.Encrypt([]byte(ePassHashed), schemaBuf.Bytes())
 
 		if err != nil {
-			fmt.Println("Failed to write schema to tar file:", err)
+			fmt.Println("Failed to encrypt schema data:", err)
 			cleanup()
 			return
 		}
 
-		// Write required iblseed api version
-		err = helpers.TarAddBuf(tarWriter, bytes.NewBufferString(seedApiVer), "seedapi")
+		schemaBuf = bytes.NewBuffer(schemaBufB)
+
+		err = helpers.TarAddBuf(tarWriter, schemaBuf, "schema")
 
 		if err != nil {
-			fmt.Println("Failed to write seedapi to tar file:", err)
+			fmt.Println("Failed to write schema to tar file:", err)
 			cleanup()
 			return
 		}
@@ -364,7 +399,7 @@ var applyCmd = &cobra.Command{
 
 		if seedFile == "latest" {
 			// Download seedfile with progress bar
-			data, err := helpers.DownloadFileWithProgress(assetsUrl + "/seed.iblseed")
+			data, err := helpers.DownloadFileWithProgress(assetsUrl + "/seed.iblseed?n=" + crypto.RandString(12))
 
 			if err != nil {
 				fmt.Println("Failed to download seed file:", err)
@@ -456,20 +491,64 @@ var applyCmd = &cobra.Command{
 
 		fmt.Println("Got map keys:", helpers.MapKeys(files))
 
-		seedApi, ok := files["seedapi"]
+		// Extract out meta
+		mdBuf, ok := files["meta"]
 
 		if !ok {
-			fmt.Println("Seed file is of an invalid version [no version found]")
+			fmt.Println("Seed file is corrupt [no meta]")
 			cleanup()
 			return
 		}
 
-		seedApiStr := seedApi.String()
+		var md Meta
 
-		if seedApiStr != seedApiVer {
-			fmt.Println("Seed file is of an invalid version [version is", seedApiStr, "but expected", seedApiVer, "]")
+		err = json.Unmarshal(mdBuf.Bytes(), &md)
+
+		if err != nil {
+			fmt.Println("Failed to unmarshal meta:", err)
+			cleanup()
 			return
 		}
+
+		if md.SeedVer != seedApiVer {
+			fmt.Println("Seed file is of an invalid version [version is", md.SeedVer, "but expected", seedApiVer, "]")
+			return
+		}
+
+		// Now finally extract out seed data
+		seedBuf, ok := files["data"]
+
+		if !ok {
+			fmt.Println("Seed file is corrupt [no data]")
+			cleanup()
+			return
+		}
+
+		// Check if using custom encryption
+		var ePass = "ibl"
+		if md.CustomEncryptionKey {
+			passCmd := cmd.Flag("password").Value.String()
+
+			if passCmd == "" {
+				ePass = helpers.GetPassword("This seed is password protected. Please enter the passphrase: ")
+			} else {
+				ePass = passCmd
+			}
+		}
+
+		fmt.Println("Using pass:", ePass)
+
+		// Decrypt seed data
+		ePassHashed := helpers.GenKey(ePass, md.EncryptionSalt)
+		seedData, err := helpers.Decrypt([]byte(ePassHashed), seedBuf.Bytes())
+
+		if err != nil {
+			fmt.Println("Failed to decrypt seed data:", err)
+			cleanup()
+			return
+		}
+
+		seedBuf = bytes.NewBuffer(seedData)
 
 		// Unpack schema to temp file
 		schemaBuf, ok := files["schema"]
@@ -479,6 +558,16 @@ var applyCmd = &cobra.Command{
 			cleanup()
 			return
 		}
+
+		schemaData, err := helpers.Decrypt([]byte(ePassHashed), schemaBuf.Bytes())
+
+		if err != nil {
+			fmt.Println("Failed to decrypt schema data:", err)
+			cleanup()
+			return
+		}
+
+		schemaBuf = bytes.NewBuffer(schemaData)
 
 		schemaFile, err := os.Create("work/temp.sql")
 
@@ -494,25 +583,6 @@ var applyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to write temp file:", err)
-			cleanup()
-			return
-		}
-
-		// Extract out md
-		mdBuf, ok := files["meta"]
-
-		if !ok {
-			fmt.Println("Seed file is corrupt [no meta]")
-			cleanup()
-			return
-		}
-
-		var md Meta
-
-		err = json.Unmarshal(mdBuf.Bytes(), &md)
-
-		if err != nil {
-			fmt.Println("Failed to unmarshal meta:", err)
 			cleanup()
 			return
 		}
@@ -620,15 +690,6 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		// Now finally extract out seed data
-		seedBuf, ok := files["data"]
-
-		if !ok {
-			fmt.Println("Seed file is corrupt [no data]")
-			cleanup()
-			return
-		}
-
 		var seed []SourceParsed
 
 		err = json.Unmarshal(seedBuf.Bytes(), &seed)
@@ -681,6 +742,11 @@ func init() {
 	seedCmd.AddCommand(applyCmd)
 
 	rootCmd.AddCommand(seedCmd)
+
+	newCmd.Flags().BoolP("encrypt", "e", false, "Encrypt seed file with custom password")
+	newCmd.Flags().StringP("password", "p", "", "Password to encrypt seed file with. Otherwise interactive prompt will be used")
+
+	applyCmd.Flags().StringP("password", "p", "", "Password to decrypt seed file with. Otherwise interactive prompt will be used if required")
 
 	// Here you will define your flags and configuration settings.
 
