@@ -131,18 +131,6 @@ var newCmd = &cobra.Command{
 				Desc:   "IBL Bot Review",
 			},
 			{
-				Table:  "tickets",
-				Column: "id",
-				Value:  67021157,
-				Desc:   "IBL Ticket (toxics test tickets)",
-			},
-			{
-				Table:  "transcripts",
-				Column: "id",
-				Value:  67021157,
-				Desc:   "IBL Ticket Transcript (toxics test transcript)",
-			},
-			{
 				Table:  "votes",
 				Column: "bot_id",
 				Value:  "721279531939397673",
