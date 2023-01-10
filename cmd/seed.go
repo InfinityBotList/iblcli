@@ -133,8 +133,8 @@ var newCmd = &cobra.Command{
 			{
 				Table:  "bots",
 				Column: "bot_id",
-				Value:  "721279531939397673",
-				Desc:   "Bristlefrost Bot Info",
+				Value:  "1019662370278228028",
+				Desc:   "Reed  Bot Info",
 			},
 			{
 				Table:  "bots",
