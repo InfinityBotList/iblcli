@@ -134,7 +134,7 @@ var newCmd = &cobra.Command{
 				Table:  "bots",
 				Column: "bot_id",
 				Value:  "1019662370278228028",
-				Desc:   "Reed  Bot Info",
+				Desc:   "Reedwhisker Bot Info",
 			},
 			{
 				Table:  "bots",
@@ -151,8 +151,8 @@ var newCmd = &cobra.Command{
 			{
 				Table:  "votes",
 				Column: "bot_id",
-				Value:  "721279531939397673",
-				Desc:   "Bristlefrost Votes",
+				Value:  "1019662370278228028",
+				Desc:   "Reedwhisker Votes",
 			},
 		}
 
