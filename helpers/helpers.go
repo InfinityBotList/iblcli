@@ -7,6 +7,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -198,4 +199,49 @@ func Decrypt(key []byte, data []byte) ([]byte, error) {
 
 	// return the decrypted data
 	return plaintext, nil
+}
+
+func ConfigFile() string {
+	envCfg := os.Getenv("INFINITY_CONFIG")
+
+	if envCfg != "" {
+		return envCfg
+	}
+
+	s, err := os.UserConfigDir()
+
+	if err != nil {
+		panic(err)
+	}
+
+	if s == "" {
+		panic("Error getting config dir")
+	}
+
+	return s
+}
+
+func Write(fn string, data any) error {
+	// Create config file
+	f, err := os.Create(fn)
+
+	if err != nil {
+		return err
+	}
+
+	bytes, err := json.Marshal(data)
+
+	if err != nil {
+		return err
+	}
+
+	w, err := f.Write(bytes)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("WriteConfig: wrote", w, "lines to", fn)
+
+	return nil
 }

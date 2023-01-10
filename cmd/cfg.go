@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -17,26 +18,6 @@ var cfgCmd = &cobra.Command{
 	Use:   "cfg",
 	Short: "Configuration system",
 	Long:  `Configure the "ibl" client (authentication and other settings).`,
-}
-
-type TargetType int
-
-const (
-	TargetTypeUser TargetType = iota
-	TargetTypeBot
-	TargetTypeServer
-)
-
-type TestAuth struct {
-	AuthType TargetType `json:"auth_type"`
-	TargetID string     `json:"target_id"`
-	Token    string     `json:"token"`
-}
-
-type AuthData struct {
-	TargetType TargetType `json:"target_type"`
-	ID         string     `json:"id"`
-	Authorized bool       `json:"authorized"`
 }
 
 var loginCmd = &cobra.Command{
@@ -51,15 +32,15 @@ var loginCmd = &cobra.Command{
 
 		fmt.Scanln(&authType)
 
-		var targetType TargetType
+		var targetType types.TargetType
 
 		switch strings.ToLower(authType) {
 		case "bot":
-			targetType = TargetTypeBot
+			targetType = types.TargetTypeBot
 		case "user":
-			targetType = TargetTypeUser
+			targetType = types.TargetTypeUser
 		case "server":
-			targetType = TargetTypeServer
+			targetType = types.TargetTypeServer
 		default:
 			fmt.Println("Invalid auth type")
 			os.Exit(1)
@@ -78,7 +59,7 @@ var loginCmd = &cobra.Command{
 		fmt.Scanln(&token)
 
 		// Check auth with API
-		resp, err := helpers.NewReq().Post("list/auth-test").Json(TestAuth{
+		resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
 			AuthType: targetType,
 			TargetID: targetID,
 			Token:    token,
@@ -94,7 +75,7 @@ var loginCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var payload AuthData
+		var payload types.AuthData
 		err = resp.Json(&payload)
 
 		if err != nil {
@@ -103,6 +84,20 @@ var loginCmd = &cobra.Command{
 		}
 
 		fmt.Println("Server Response:", payload)
+
+		cfgFile := helpers.ConfigFile()
+
+		// Write the config
+		err = helpers.Write(cfgFile+"/auth", types.TestAuth{
+			AuthType: targetType,
+			TargetID: targetID,
+			Token:    token,
+		})
+
+		if err != nil {
+			fmt.Println("Error writing config:", err)
+			os.Exit(1)
+		}
 	},
 }
 

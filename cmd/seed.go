@@ -634,6 +634,7 @@ var applyCmd = &cobra.Command{
 		}
 
 		// Create role root
+		pool.Exec(context.Background(), "CREATE ROLE postgres")
 		pool.Exec(context.Background(), "CREATE ROLE root")
 
 		pool.Exec(context.Background(), "DROP DATABASE infinity")
