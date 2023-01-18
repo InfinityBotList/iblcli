@@ -143,6 +143,8 @@ func mkBackup() {
 		return
 	}
 
+	defer compressed.Close()
+
 	w := lzw.NewWriter(compressed, lzw.LSB, 8)
 
 	_, err = io.Copy(w, tarFile)
