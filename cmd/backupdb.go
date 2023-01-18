@@ -4,7 +4,11 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/lzw"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -98,11 +102,53 @@ func mkBackup() {
 	// Get current datetime formatted
 	t := time.Now().Format("2006-01-02-15:04:05")
 
-	// Write the encrypted file
-	err = os.WriteFile(outFolder+"/backup-"+t+".iblbackup", encFile, 0604)
+	// Create a tar file as a io.Writer, NOT a file
+	tarFile := bytes.NewBuffer([]byte{})
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Failed to create tar file:", err)
+		cleanup()
+		return
+	}
+
+	tarWriter := tar.NewWriter(tarFile)
+
+	// Write data buf to tar file
+	err = helpers.TarAddBuf(tarWriter, bytes.NewBuffer(encFile), "data")
+
+	if err != nil {
+		fmt.Println("Failed to write data to tar file:", err)
+		cleanup()
+		return
+	}
+
+	// Write salt buf to tar file
+	err = helpers.TarAddBuf(tarWriter, bytes.NewBuffer([]byte(salt)), "salt")
+
+	if err != nil {
+		fmt.Println("Failed to write salt to tar file:", err)
+		cleanup()
+		return
+	}
+
+	// Close tar file
+	tarWriter.Close()
+
+	// Compress
+	compressed, err := os.Create(outFolder + "/backup-" + t + ".iblbackup")
+
+	if err != nil {
+		fmt.Println("Failed to create compressed file:", err)
+		cleanup()
+		return
+	}
+
+	w := lzw.NewWriter(compressed, lzw.LSB, 8)
+
+	_, err = io.Copy(w, tarFile)
+
+	if err != nil {
+		fmt.Println("Failed to compress file:", err)
 		cleanup()
 		return
 	}
@@ -138,9 +184,107 @@ var longRunningBackupCmd = &cobra.Command{
 	},
 }
 
+var decrBackup = &cobra.Command{
+	Use:   "decr file output",
+	Short: "Decrypt and decompress a backup file",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		// Read the password from the file
+		passFile := "/certs/bakkey"
+
+		if os.Getenv("ALT_BAK_KEY") != "" {
+			passFile = os.Getenv("ALT_BAK_KEY")
+		}
+
+		// Read the password from the file
+		pass, err := os.ReadFile(passFile)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// Open the file
+		file, err := os.Open(args[0])
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// Extract seed file using lzw to buffer
+		tarBuf := bytes.NewBuffer([]byte{})
+		r := lzw.NewReader(file, lzw.LSB, 8)
+
+		_, err = io.Copy(tarBuf, r)
+
+		if err != nil {
+			fmt.Println("Failed to decompress backup file:", err)
+			return
+		}
+
+		// Get size of decompressed file
+		tarSize := tarBuf.Len()
+
+		fmt.Println("Decompressed size: ", tarSize, "bytes")
+
+		// Extract tar file to map of buffers
+		tarReader := tar.NewReader(tarBuf)
+
+		files := make(map[string]*bytes.Buffer)
+
+		for {
+			// Read next file from tar header
+			header, err := tarReader.Next()
+
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				fmt.Println("Failed to read tar file:", err)
+				return
+			}
+
+			// Read file into buffer
+			buf := bytes.NewBuffer([]byte{})
+
+			_, err = io.Copy(buf, tarReader)
+
+			if err != nil {
+				fmt.Println("Failed to read tar file:", err)
+				return
+			}
+
+			// Save file to map
+			files[header.Name] = buf
+		}
+
+		fmt.Println("Got map keys:", helpers.MapKeys(files))
+
+		// Decrypt data
+		ePassHashed := helpers.GenKey(string(pass), files["salt"].String())
+		data, err := helpers.Decrypt([]byte(ePassHashed), files["data"].Bytes())
+
+		if err != nil {
+			fmt.Println("Failed to decrypt data:", err)
+			return
+		}
+
+		// Write data to file
+		err = os.WriteFile(args[1], data, 0644)
+
+		if err != nil {
+			fmt.Println("Failed to write data to file:", err)
+			return
+		}
+	},
+}
+
 func init() {
 	backupdbCmd.AddCommand(backupdbNewCmd)
 	backupdbCmd.AddCommand(longRunningBackupCmd)
+	backupdbCmd.AddCommand(decrBackup)
 	rootCmd.AddCommand(backupdbCmd)
 
 	// Here you will define your flags and configuration settings.
