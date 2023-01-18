@@ -205,6 +205,7 @@ var decrBackup = &cobra.Command{
 		}
 
 		// Open the file
+		fmt.Println("Opening", args[0])
 		file, err := os.Open(args[0])
 
 		if err != nil {
