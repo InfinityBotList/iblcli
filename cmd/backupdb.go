@@ -154,6 +154,8 @@ func mkBackup() {
 		cleanup()
 		return
 	}
+
+	w.Close()
 }
 
 // backupdbCmd represents the backupdb command
