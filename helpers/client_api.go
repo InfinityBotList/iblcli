@@ -51,6 +51,7 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 	}, nil
 }
 
+// A response from the API
 type ClientResponse struct {
 	Request  *http.Request
 	Response *http.Response
@@ -71,6 +72,7 @@ func (c ClientResponse) RetryAfter() string {
 	return c.Response.Header.Get("Retry-After")
 }
 
+// A request to the API
 type ClientRequest struct {
 	method  string
 	path    string
@@ -78,73 +80,86 @@ type ClientRequest struct {
 	headers map[string]string
 }
 
+// Creates a new request
 func NewReq() ClientRequest {
 	return ClientRequest{
 		headers: make(map[string]string),
 	}
 }
 
+// Sets the method of the request
 func (r ClientRequest) Method(method string) ClientRequest {
 	r.method = method
 	return r
 }
 
+// Sets the method to HEAD
 func (r ClientRequest) Head(path string) ClientRequest {
 	r.method = "HEAD"
 	r.path = path
 	return r
 }
 
+// Sets the method to GET
 func (r ClientRequest) Get(path string) ClientRequest {
 	r.method = "GET"
 	r.path = path
 	return r
 }
 
+// Sets the method to POST
 func (r ClientRequest) Post(path string) ClientRequest {
 	r.method = "POST"
 	r.path = path
 	return r
 }
 
+// Sets the method to PUT
 func (r ClientRequest) Put(path string) ClientRequest {
 	r.method = "PUT"
 	r.path = path
 	return r
 }
 
+// Sets the method to PATCH
 func (r ClientRequest) Patch(path string) ClientRequest {
 	r.method = "PATCH"
 	r.path = path
 	return r
 }
 
+// Sets the method to DELETE
 func (r ClientRequest) Delete(path string) ClientRequest {
 	r.method = "DELETE"
 	r.path = path
 	return r
 }
 
+// Sets the path of the request
 func (r ClientRequest) Path(path string) ClientRequest {
 	r.path = path
 	return r
 }
 
+// Sets the body of the request
 func (r ClientRequest) Json(json any) ClientRequest {
 	r.body = json
 	return r
 }
 
+// Sets the authorization header
 func (r ClientRequest) Auth(token string) ClientRequest {
 	r.headers["Authorization"] = token
 	return r
 }
 
+// Sets a header
 func (r ClientRequest) Header(key string, value string) ClientRequest {
 	r.headers[key] = value
 	return r
 }
 
+// Executes the request
 func (r ClientRequest) Do() (*ClientResponse, error) {
 	return request(r.method, r.path, r.body, r.headers)
 }

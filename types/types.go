@@ -19,3 +19,7 @@ type AuthData struct {
 	ID         string     `json:"id"`
 	Authorized bool       `json:"authorized"`
 }
+
+type WebhookSecret struct {
+	Secret string `json:"secret"`
+}

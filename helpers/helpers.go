@@ -221,6 +221,12 @@ func ConfigFile() string {
 	return s
 }
 
+func WriteConfig(name string, data any) error {
+	cfgFile := ConfigFile()
+
+	return Write(cfgFile+"/"+name, data)
+}
+
 func Write(fn string, data any) error {
 	// Create config file
 	f, err := os.Create(fn)
@@ -241,7 +247,34 @@ func Write(fn string, data any) error {
 		return err
 	}
 
-	fmt.Println("WriteConfig: wrote", w, "lines to", fn)
+	fmt.Println("Write: wrote", w, "lines to", fn)
 
 	return nil
+}
+
+func LoadConfig(name string) (string, bool) {
+	cfgFile := ConfigFile()
+
+	if fsi, err := os.Stat(cfgFile + "/" + name); err != nil || fsi.IsDir() {
+		return "", false
+	} else {
+		f, err := os.Open(cfgFile + "/" + name)
+
+		if err != nil {
+			return "", false
+		}
+
+		defer f.Close()
+
+		buf := bytes.Buffer{}
+
+		_, err = io.Copy(&buf, f)
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error reading config file:", err)
+			return "", false
+		}
+
+		return buf.String(), true
+	}
 }

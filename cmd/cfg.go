@@ -52,11 +52,7 @@ var loginCmd = &cobra.Command{
 
 		fmt.Scanln(&targetID)
 
-		fmt.Print("API Token [you can get this from bot/profile/server settings]: ")
-
-		var token string
-
-		fmt.Scanln(&token)
+		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
 
 		// Check auth with API
 		resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
@@ -85,10 +81,8 @@ var loginCmd = &cobra.Command{
 
 		fmt.Println("Server Response:", payload)
 
-		cfgFile := helpers.ConfigFile()
-
 		// Write the config
-		err = helpers.Write(cfgFile+"/auth", types.TestAuth{
+		err = helpers.WriteConfig("auth", types.TestAuth{
 			AuthType: targetType,
 			TargetID: targetID,
 			Token:    token,
@@ -101,8 +95,36 @@ var loginCmd = &cobra.Command{
 	},
 }
 
+var setWebhookSecretCmd = &cobra.Command{
+	Use:     "setwebhooksecret",
+	Short:   "Set the webhook secret",
+	Long:    `Set the webhook secret for the currently logged in bot.`,
+	Aliases: []string{"websecret"},
+	Run: func(cmd *cobra.Command, args []string) {
+		_, ok := helpers.LoadConfig("auth")
+
+		if !ok {
+			fmt.Println("You are not logged in. Login with `cmd login` first before setting a webhook secret")
+			os.Exit(1)
+		}
+
+		secret := helpers.GetPassword("Webhook Secret")
+
+		// Write the config
+		err := helpers.WriteConfig("secret", types.WebhookSecret{
+			Secret: secret,
+		})
+
+		if err != nil {
+			fmt.Println("Error writing config:", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	// login
+	cfgCmd.AddCommand(setWebhookSecretCmd)
 	cfgCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(cfgCmd)
 
