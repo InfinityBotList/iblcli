@@ -52,7 +52,7 @@ var loginCmd = &cobra.Command{
 
 		fmt.Scanln(&targetID)
 
-		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
+		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings, vanities are also supported if applicable]")
 
 		// Check auth with API
 		resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
