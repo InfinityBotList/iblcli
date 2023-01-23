@@ -73,6 +73,14 @@ func GetAssetsURL() string {
 	}
 }
 
+func GetFrontendURL() string {
+	if os.Getenv("FRONTEND_URL") == "" {
+		return "https://ptb.infinitybots.gg"
+	} else {
+		return os.Getenv("FRONTEND_URL")
+	}
+}
+
 func DownloadFileWithProgress(url string) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 
@@ -119,6 +127,20 @@ func GetPassword(msg string) string {
 	pass := string(bytepw)
 
 	return pass
+}
+
+func GetInput(msg string, check func(s string) bool) string {
+	for {
+		fmt.Print(msg + ": ")
+		var input string
+		fmt.Scanln(&input)
+
+		if check(input) {
+			return input
+		}
+
+		fmt.Println("")
+	}
 }
 
 func GenKey(pass string, salt string) (key []byte) {

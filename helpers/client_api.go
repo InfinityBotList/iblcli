@@ -3,6 +3,7 @@ package helpers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -26,6 +27,8 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 			return nil, err
 		}
 	}
+
+	fmt.Println(method, apiUrl+path, " (body:", len(body), "bytes")
 
 	req, err := http.NewRequest(method, apiUrl+path, bytes.NewReader(body))
 
@@ -60,6 +63,15 @@ type ClientResponse struct {
 // Returns true if the response is a maintenance response (502, 503, 408)
 func (c ClientResponse) IsMaint() bool {
 	return c.Response.StatusCode == 502 || c.Response.StatusCode == 503 || c.Response.StatusCode == 408
+}
+
+// Unmarshals response body if response is OK otherwise returns error
+func (c ClientResponse) JsonOk(v any) error {
+	if c.Response.StatusCode != 200 {
+		return fmt.Errorf("error status code %d", c.Response.StatusCode)
+	}
+
+	return c.Json(v)
 }
 
 // Unmarshals the response body into the given struct

@@ -15,6 +15,8 @@ require (
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.1 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -24,6 +26,7 @@ require (
 )
 
 require (
+	github.com/fatih/color v1.14.0
 	github.com/fynelabs/selfupdate v0.1.0
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/infinitybotlist/eureka v0.0.0-20221203142608-7547b65265c4

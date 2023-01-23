@@ -4,12 +4,14 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/InfinityBotList/ibl/types"
+	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/spf13/cobra"
 )
 
@@ -26,9 +28,16 @@ var loginCmd = &cobra.Command{
 	Long:    `Login to the IBL API using a bot or user token.`,
 	Aliases: []string{"auth", "a", "l"},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Print("Auth Type (bot/user/server): ")
+		fmt.Print(helpers.BoldBlueText(helpers.AddUnderDecor("Login")))
 
-		var authType string
+		var authType = helpers.GetInput("Auth Type (bot/user/server)", func(s string) bool {
+			if strings.ToLower(s) == "bot" || strings.ToLower(s) == "user" || strings.ToLower(s) == "server" {
+				return true
+			} else {
+				fmt.Fprintln(os.Stderr, "Invalid auth type. Choose from bot, user or server")
+				return false
+			}
+		})
 
 		fmt.Scanln(&authType)
 
@@ -46,11 +55,9 @@ var loginCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Print("Target ID (user/bot/server ID): ")
-
-		var targetID string
-
-		fmt.Scanln(&targetID)
+		var targetID = helpers.GetInput("Target ID (user/bot/server ID)", func(s string) bool {
+			return len(s) > 0
+		})
 
 		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings, vanities are also supported if applicable]")
 
@@ -101,17 +108,56 @@ var setWebhookSecretCmd = &cobra.Command{
 	Long:    `Set the webhook secret for the currently logged in bot.`,
 	Aliases: []string{"websecret"},
 	Run: func(cmd *cobra.Command, args []string) {
-		_, ok := helpers.LoadConfig("auth")
+		fmt.Print(helpers.BoldBlueText(helpers.AddUnderDecor("Set Webhook Secret")))
+
+		cfg, ok := helpers.LoadConfig("auth")
 
 		if !ok {
 			fmt.Println("You are not logged in. Login with `cmd login` first before setting a webhook secret")
 			os.Exit(1)
 		}
 
-		secret := helpers.GetPassword("Webhook Secret")
+		var auth types.TestAuth
+
+		err := json.Unmarshal([]byte(cfg), &auth)
+
+		if err != nil {
+			fmt.Println("Error loading config:", err)
+			os.Exit(1)
+		}
+
+		resp, err := helpers.NewReq().Get("bots/" + auth.TargetID + "/webhook-state").Do()
+
+		if err != nil {
+			fmt.Println("Error getting webhook state:", err)
+			os.Exit(1)
+		}
+
+		var webhookState types.WebhookState
+		err = resp.JsonOk(&webhookState)
+
+		if err != nil {
+			fmt.Println("Error getting webhook state:", err)
+			os.Exit(1)
+		}
+
+		var secret string
+
+		if webhookState.SecretSet {
+			secret = helpers.GetPassword("Please enter the webhook secret you set on your bot's settings page.\n\nIf you don't know it, regenerate it or unset it (leave it blank and save), rerun setup and we'll provide instructions\n\nSecret")
+		} else {
+			suggestedSecret := crypto.RandString(48)
+			fmt.Println("Seems like you haven't set a webhook secret yet.")
+
+			fmt.Println(helpers.BotSettingsHelp())
+
+			fmt.Println("Here's a possible good/strong secret:", suggestedSecret, "\nyou can use this for 'Webhook Secret' or generate your own")
+
+			os.Exit(1)
+		}
 
 		// Write the config
-		err := helpers.WriteConfig("secret", types.WebhookSecret{
+		err = helpers.WriteConfig("secret", types.WebhookSecret{
 			Secret: secret,
 		})
 
