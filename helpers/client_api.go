@@ -28,7 +28,7 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 		}
 	}
 
-	fmt.Println(method, apiUrl+path, " (body:", len(body), "bytes")
+	fmt.Println(method, apiUrl+path, " (body:", len(body), "bytes)")
 
 	req, err := http.NewRequest(method, apiUrl+path, bytes.NewReader(body))
 

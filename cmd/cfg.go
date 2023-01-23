@@ -39,8 +39,6 @@ var loginCmd = &cobra.Command{
 			}
 		})
 
-		fmt.Scanln(&authType)
-
 		var targetType types.TargetType
 
 		switch strings.ToLower(authType) {
@@ -55,11 +53,13 @@ var loginCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var targetID = helpers.GetInput("Target ID (user/bot/server ID)", func(s string) bool {
+		var targetID = helpers.GetInput("Target ID [user/bot/server ID, vanities are also supported if applicable]", func(s string) bool {
 			return len(s) > 0
 		})
 
-		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings, vanities are also supported if applicable]")
+		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
+
+		fmt.Println(token)
 
 		// Check auth with API
 		resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
