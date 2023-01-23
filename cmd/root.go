@@ -19,6 +19,8 @@ var (
 	BuildRev string
 	// Build time is the time the binary was built
 	BuildTime string
+	// Project name is the name of the project
+	ProjectName string
 )
 
 func init() {

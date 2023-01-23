@@ -5,7 +5,8 @@
 BUILDREV := $(shell uuidgen)
 BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
 REPONAME := github.com/InfinityBotList/ibl
-GOFLAGS := -trimpath -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
+PROJECTNAME := iblcli
+GOFLAGS := -trimpath -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)' -X '$(REPONAME)/cmd.ProjectName=$(PROJECTNAME)'"
 GOFLAGS_DBG := -trimpath -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
 
 COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386
@@ -25,8 +26,8 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf /iblseeds/shadowsight
-	mkdir -p /iblseeds/shadowsight
-	mv -vf bin/* /iblseeds/shadowsight
-	echo -n $(BUILDREV) > /iblseeds/shadowsight/current_rev
+	rm -rf /iblseeds/iblcli /iblseeds/shadowsight
+	mkdir -p /iblseeds/iblcli
+	mv -vf bin/* /iblseeds/iblcli
+	echo -n $(BUILDREV) > /iblseeds/iblcli/current_rev
 	rm -rf bin
