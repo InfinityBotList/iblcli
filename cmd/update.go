@@ -61,7 +61,7 @@ var updateCmd = &cobra.Command{
 			binFileName = "ibl.exe"
 		}
 
-		url := helpers.GetAssetsURL() + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
+		url := helpers.GetAssetsURL() + "/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
 		fmt.Println("Downloading latest version from:", url)
 
