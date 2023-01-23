@@ -83,8 +83,8 @@ var loginCmd = &cobra.Command{
 
 		// Write the config
 		err = helpers.WriteConfig("auth", types.TestAuth{
-			AuthType: targetType,
-			TargetID: targetID,
+			AuthType: payload.TargetType,
+			TargetID: payload.ID,
 			Token:    token,
 		})
 
