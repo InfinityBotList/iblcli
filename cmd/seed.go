@@ -111,50 +111,7 @@ var newCmd = &cobra.Command{
 			Desc   string
 		}
 
-		var seedDataSrc = []SeedSource{
-			{
-				Table:  "users",
-				Column: "user_id",
-				Value:  "563808552288780322",
-				Desc:   "Rootsprings User Info",
-			},
-			{
-				Table:  "users",
-				Column: "user_id",
-				Value:  "728871946456137770",
-				Desc:   "Burgerkings User Info",
-			},
-			{
-				Table:  "users",
-				Column: "user_id",
-				Value:  "510065483693817867",
-				Desc:   "Toxic Devs User Info",
-			},
-			{
-				Table:  "bots",
-				Column: "bot_id",
-				Value:  "1019662370278228028",
-				Desc:   "Reedwhisker Bot Info",
-			},
-			{
-				Table:  "bots",
-				Column: "bot_id",
-				Value:  "815553000470478850",
-				Desc:   "IBL Bot Bot Info [for reviews]",
-			},
-			{
-				Table:  "reviews",
-				Column: "bot_id",
-				Value:  "815553000470478850",
-				Desc:   "IBL Bot Review",
-			},
-			{
-				Table:  "votes",
-				Column: "bot_id",
-				Value:  "1019662370278228028",
-				Desc:   "Reedwhisker Votes",
-			},
-		}
+		var seedDataSrc = []SeedSource{}
 
 		pool, err := helpers.GetPool()
 
