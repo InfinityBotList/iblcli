@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"strconv"
@@ -162,38 +160,34 @@ var typegenCmd = &cobra.Command{
 		}
 
 		// Check for src/utils/generated
-		if _, err := os.Stat("src/utils/generated"); errors.Is(err, fs.ErrExist) {
-			fmt.Println("Copying files to src/utils/generated")
+		os.MkdirAll("src/utils/generated", 0755)
+		fmt.Println("Copying files to src/utils/generated")
 
-			// copy all files in work to src/utils/generated
-			fileList, err := os.ReadDir("work")
+		// copy all files in work to src/utils/generated
+		fileList, err := os.ReadDir("work")
+
+		if err != nil {
+			fmt.Println("Error reading work directory:", err)
+			return
+		}
+
+		for i, file := range fileList {
+			fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Copying", file.Name())
+
+			// Read file
+			b, err := os.ReadFile("work/" + file.Name())
 
 			if err != nil {
-				fmt.Println("Error reading work directory:", err)
+				fmt.Println("Error opening file:", err)
 				return
 			}
 
-			for i, file := range fileList {
-				fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Copying", file.Name())
+			err = os.WriteFile("src/utils/generated/"+file.Name(), b, 0755)
 
-				// Read file
-				b, err := os.ReadFile("work/" + file.Name())
-
-				if err != nil {
-					fmt.Println("Error opening file:", err)
-					return
-				}
-
-				err = os.WriteFile("src/utils/generated/"+file.Name(), b, 0755)
-
-				if err != nil {
-					fmt.Println("Error creating file:", err)
-					return
-				}
+			if err != nil {
+				fmt.Println("Error creating file:", err)
+				return
 			}
-		} else {
-			fmt.Println("No src/utils/generated directory, exiting")
-			return
 		}
 	},
 }
