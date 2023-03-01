@@ -13,23 +13,18 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/infinitybotlist/eureka/crypto"
 
-	"github.com/jackc/pgtype"
 	"github.com/spf13/cobra"
 )
 
 type Meta struct {
-	CreatedAt           time.Time `json:"c"`
-	Nonce               string    `json:"n"`
-	CustomEncryptionKey bool      `json:"e"`
-	SeedVer             string    `json:"v"`
-	EncryptionSalt      string    `json:"s"`
+	CreatedAt time.Time `json:"c"`
+	Nonce     string    `json:"n"`
+	SeedVer   string    `json:"v"`
 }
 
 type SourceParsed struct {
@@ -37,7 +32,7 @@ type SourceParsed struct {
 	Table string
 }
 
-const seedApiVer = "popplio-e1" // e means encryption protocol version
+const seedApiVer = "area-zero-pokemon" // e means encryption protocol version
 
 // seedCmd represents the seed command
 var seedCmd = &cobra.Command{
@@ -52,7 +47,7 @@ var newCmd = &cobra.Command{
 	Short: "Creates a new database seed",
 	Long:  `Creates a new database seed`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cleanup := func() {
+		defer func() {
 			fmt.Println("Cleaning up...")
 
 			// delete all files in work directory
@@ -61,30 +56,13 @@ var newCmd = &cobra.Command{
 			if err != nil {
 				fmt.Println("Error cleaning up:", err)
 			}
-		}
-
-		var ePass string
-		encrypt := cmd.Flag("encrypt").Value.String()
-		ePassCmd := cmd.Flag("password").Value.String()
-
-		if encrypt == "true" {
-			if ePassCmd == "" {
-				ePass = helpers.GetPassword("Enter encryption password: ")
-			} else {
-				ePass = ePassCmd
-			}
-		} else {
-			ePass = "ibl"
-		}
-
-		cleanup()
+		}()
 
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
 		if err != nil {
 			fmt.Println("Error creating work directory:", err)
-			cleanup()
 			return
 		}
 
@@ -98,113 +76,25 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println(err)
-			cleanup()
 			return
 		}
-
-		fmt.Println("Copying seed sample data")
-
-		type SeedSource struct {
-			Table  string
-			Column string
-			Value  any
-			Desc   string
-		}
-
-		var seedDataSrc = []SeedSource{}
-
-		pool, err := helpers.GetPool()
-
-		if err != nil {
-			fmt.Println("Pool connection failed:", err)
-			cleanup()
-			return
-		}
-
-		var parsed = []SourceParsed{}
-
-		for _, source := range seedDataSrc {
-			var jsonRow pgtype.JSON
-			err := pool.QueryRow(context.Background(), "SELECT row_to_json("+source.Table+") FROM "+source.Table+" WHERE "+source.Column+" = $1", source.Value).Scan(&jsonRow)
-
-			if err != nil {
-				fmt.Println("Failed to get data for", source.Desc, err)
-				cleanup()
-				return
-			}
-
-			var data map[string]any
-			err = jsonRow.AssignTo(&data)
-
-			if err != nil {
-				fmt.Println("Failed to parse data for", source.Desc, err)
-				cleanup()
-				return
-			}
-
-			// Strip tokens from data
-			var parsedData = make(map[string]any)
-			for k, v := range data {
-				if k == "webhook" {
-					parsedData[k] = "https://testhook.xyz"
-				} else if strings.Contains(k, "token") || strings.Contains(k, "web") {
-					parsedData[k] = crypto.RandString(128)
-				} else if strings.Contains(k, "unique") {
-					parsedData[k] = []any{}
-				} else {
-					parsedData[k] = v
-				}
-			}
-
-			parsed = append(parsed, SourceParsed{Data: data, Table: source.Table})
-		}
-
-		// Create sample.json buffer
-		sampleBuf := bytes.NewBuffer([]byte{})
-
-		// Write sample data to buffer
-		enc := json.NewEncoder(sampleBuf)
-
-		err = enc.Encode(parsed)
-
-		if err != nil {
-			fmt.Println("Failed to write sample data:", err)
-			cleanup()
-			return
-		}
-
-		// Encrypt sample data
-		salt := crypto.RandString(8)
-		ePassHashed := helpers.GenKey(ePass, salt)
-		sampleBufB, err := helpers.Encrypt([]byte(ePassHashed), sampleBuf.Bytes())
-
-		if err != nil {
-			fmt.Println("Failed to encrypt sample data:", err)
-			cleanup()
-			return
-		}
-
-		sampleBuf = bytes.NewBuffer(sampleBufB)
 
 		// Write metadata to buffer
 		mdBuf := bytes.NewBuffer([]byte{})
 
 		// Write metadata to md file
 		metadata := Meta{
-			CreatedAt:           time.Now(),
-			Nonce:               crypto.RandString(32),
-			CustomEncryptionKey: encrypt == "true",
-			SeedVer:             seedApiVer,
-			EncryptionSalt:      salt,
+			CreatedAt: time.Now(),
+			Nonce:     crypto.RandString(32),
+			SeedVer:   seedApiVer,
 		}
 
-		enc = json.NewEncoder(mdBuf)
+		enc := json.NewEncoder(mdBuf)
 
 		err = enc.Encode(metadata)
 
 		if err != nil {
 			fmt.Println("Failed to write metadata:", err)
-			cleanup()
 			return
 		}
 
@@ -213,27 +103,16 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to create tar file:", err)
-			cleanup()
 			return
 		}
 
 		tarWriter := tar.NewWriter(tarFile)
-
-		// Write sample buf to tar file
-		err = helpers.TarAddBuf(tarWriter, sampleBuf, "data")
-
-		if err != nil {
-			fmt.Println("Failed to write sample data to tar file:", err)
-			cleanup()
-			return
-		}
 
 		// Write metadata buf to tar file
 		err = helpers.TarAddBuf(tarWriter, mdBuf, "meta")
 
 		if err != nil {
 			fmt.Println("Failed to write metadata to tar file:", err)
-			cleanup()
 			return
 		}
 
@@ -242,7 +121,6 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to open schema file:", err)
-			cleanup()
 			return
 		}
 
@@ -253,25 +131,14 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to read schema file:", err)
-			cleanup()
 			return
 		}
 
-		schemaBufB, err := helpers.Encrypt([]byte(ePassHashed), schemaBuf.Bytes())
-
-		if err != nil {
-			fmt.Println("Failed to encrypt schema data:", err)
-			cleanup()
-			return
-		}
-
-		schemaBuf = bytes.NewBuffer(schemaBufB)
-
+		// Write metadata buf to tar file
 		err = helpers.TarAddBuf(tarWriter, schemaBuf, "schema")
 
 		if err != nil {
 			fmt.Println("Failed to write schema to tar file:", err)
-			cleanup()
 			return
 		}
 
@@ -282,7 +149,6 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to create compressed file:", err)
-			cleanup()
 			return
 		}
 
@@ -295,12 +161,10 @@ var newCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to compress file:", err)
-			cleanup()
 			return
 		}
 
 		w.Close()
-		cleanup()
 
 		// Try to find /iblseeds folder (devel assets server)
 		_, err = os.Stat("/iblseeds")
@@ -472,39 +336,6 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		// Now finally extract out seed data
-		seedBuf, ok := files["data"]
-
-		if !ok {
-			fmt.Println("Seed file is corrupt [no data]")
-			cleanup()
-			return
-		}
-
-		// Check if using custom encryption
-		var ePass = "ibl"
-		if md.CustomEncryptionKey {
-			passCmd := cmd.Flag("password").Value.String()
-
-			if passCmd == "" {
-				ePass = helpers.GetPassword("This seed is password protected. Please enter the passphrase: ")
-			} else {
-				ePass = passCmd
-			}
-		}
-
-		// Decrypt seed data
-		ePassHashed := helpers.GenKey(ePass, md.EncryptionSalt)
-		seedData, err := helpers.Decrypt([]byte(ePassHashed), seedBuf.Bytes())
-
-		if err != nil {
-			fmt.Println("Failed to decrypt seed data:", err)
-			cleanup()
-			return
-		}
-
-		seedBuf = bytes.NewBuffer(seedData)
-
 		// Unpack schema to temp file
 		schemaBuf, ok := files["schema"]
 
@@ -513,16 +344,6 @@ var applyCmd = &cobra.Command{
 			cleanup()
 			return
 		}
-
-		schemaData, err := helpers.Decrypt([]byte(ePassHashed), schemaBuf.Bytes())
-
-		if err != nil {
-			fmt.Println("Failed to decrypt schema data:", err)
-			cleanup()
-			return
-		}
-
-		schemaBuf = bytes.NewBuffer(schemaData)
 
 		schemaFile, err := os.Create("work/temp.sql")
 
@@ -600,6 +421,8 @@ var applyCmd = &cobra.Command{
 
 		fmt.Println("Restoring database backup")
 
+		pool.Close()
+
 		// Use pg_restore to restore seedman.tmp
 		restoreCmd := exec.Command("pg_restore", "-d", "infinity", "-h", "localhost", "-p", "5432", "work/temp.sql")
 
@@ -644,46 +467,6 @@ var applyCmd = &cobra.Command{
 			fmt.Println("Failed to insert seed info:", err)
 			cleanup()
 			return
-		}
-
-		var seed []SourceParsed
-
-		err = json.Unmarshal(seedBuf.Bytes(), &seed)
-
-		if err != nil {
-			fmt.Println("Failed to unmarshal seed:", err)
-			cleanup()
-			return
-		}
-
-		// Loop over seed data and insert into db
-		for _, s := range seed {
-			var i int = 1
-			var args []any
-			var keys []string
-			var sqlArgs []string
-
-			// Loop over all map props
-			for k, v := range s.Data {
-				keys = append(keys, k)
-				args = append(args, v)
-				sqlArgs = append(sqlArgs, "$"+strconv.Itoa(i))
-				i++
-			}
-
-			// Create sql string
-			fmt.Println(s.Table)
-			sql := "INSERT INTO " + s.Table + " (" + strings.Join(keys, ", ") + ") VALUES (" + strings.Join(sqlArgs, ", ") + ")"
-
-			fmt.Println(sql, args)
-
-			_, err := pool.Exec(context.Background(), sql, args...)
-
-			if err != nil {
-				fmt.Println("Failed to insert seed data:", err)
-				cleanup()
-				return
-			}
 		}
 
 		cleanup()

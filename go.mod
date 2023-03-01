@@ -3,7 +3,7 @@ module github.com/InfinityBotList/ibl
 go 1.19
 
 require (
-	github.com/jackc/pgtype v1.13.0
+	github.com/jackc/pgtype v1.13.0 // indirect
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/term v0.3.0
