@@ -6,6 +6,4 @@ For more information, try running "ibl --help"
 
 If you wish to add a new command, use "~/go/bin/cobra-cli add"
 
-## Installation
-
-See https://ptb.botlist.app
+**Still a work in progress**
