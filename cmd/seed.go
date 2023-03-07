@@ -166,12 +166,13 @@ var newCmd = &cobra.Command{
 
 		w.Close()
 
-		// Try to find /iblseeds folder (devel assets server)
-		_, err = os.Stat("/iblseeds")
+		// Try to find seeds folder (devel assets server)
+		path := "/iblcdn/public/dev"
+		_, err = os.Stat(path)
 
 		if err == nil {
-			fmt.Println("Mpving seed to found folder /iblseeds")
-			err = os.Rename("seed.iblseed", "/iblseeds/seed.iblseed")
+			fmt.Println("Mpving seed to found folder: " + path)
+			err = os.Rename("seed.iblseed", path+"/seed.iblseed")
 
 			if err != nil {
 				fmt.Println("Failed to copy seed to devel assets server:", err)

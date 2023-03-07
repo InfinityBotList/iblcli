@@ -67,7 +67,7 @@ func TarAddBuf(tarWriter *tar.Writer, buf *bytes.Buffer, name string) error {
 
 func GetAssetsURL() string {
 	if os.Getenv("ASSETS_URL") == "" {
-		return "https://devel.infinitybots.xyz"
+		return "https://cdn.infinitybots.xyz/dev"
 	} else {
 		return os.Getenv("ASSETS_URL")
 	}

@@ -61,7 +61,10 @@ var typegenCmd = &cobra.Command{
 		}
 
 		fmt.Println("Downloading RPC")
-		resp, err := http.Get("https://devel.infinitybots.xyz/json/apiBindings/")
+
+		assetsUrl := helpers.GetAssetsURL()
+
+		resp, err := http.Get(assetsUrl + "/json/apiBindings/")
 
 		if err != nil {
 			fmt.Println("Error downloading RPC:", err)
@@ -85,7 +88,7 @@ var typegenCmd = &cobra.Command{
 		for i, file := range list {
 			fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Downloading", file.Name)
 
-			resp, err := http.Get("https://devel.infinitybots.xyz/apiBindings/" + file.Name)
+			resp, err := http.Get(assetsUrl + "/apiBindings/" + file.Name)
 
 			if err != nil {
 				fmt.Println("Error downloading file:", err)

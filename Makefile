@@ -26,8 +26,8 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf /iblseeds/iblcli /iblseeds/shadowsight
-	mkdir -p /iblseeds/iblcli
-	mv -vf bin/* /iblseeds/iblcli
-	echo -n $(BUILDREV) > /iblseeds/iblcli/current_rev
+	rm -rf /iblcdn/public/dev/iblcli /iblcdn/public/dev/shadowsight
+	mkdir -p /iblcdn/public/dev/iblcli
+	mv -vf bin/* /iblcdn/public/dev/iblcli
+	echo -n $(BUILDREV) > /iblcdn/public/dev/iblcli/current_rev
 	rm -rf bin
