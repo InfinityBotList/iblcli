@@ -83,7 +83,7 @@ var proxyCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(proxyCmd)
 
-	proxyCmd.Flags().StringP("outbound-ip", "ip", "", "The outbound IP to use")
+	proxyCmd.Flags().StringP("outbound-ip", "o", "", "The outbound IP to use")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
