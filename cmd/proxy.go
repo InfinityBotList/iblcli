@@ -36,6 +36,12 @@ var proxyCmd = &cobra.Command{
 			os.Setenv("PORT", "3219")
 		}
 
+		oip := cmd.Flag("outbound-ip").Value.String()
+
+		if oip != "" {
+			os.Setenv("OUTBOUND_IP", oip)
+		}
+
 		if os.Getenv("OUTBOUND_IP") == "" {
 			// Get the anchor URL from DO
 			resp, err := http.Get("http://169.254.169.254/metadata/v1/interfaces/public/0/anchor_ipv4/address")
@@ -77,6 +83,7 @@ var proxyCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(proxyCmd)
 
+	proxyCmd.Flags().StringP("outbound-ip", "ip", "", "The outbound IP to use")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
