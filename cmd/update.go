@@ -24,7 +24,7 @@ var updateCmd = &cobra.Command{
 		force := cmd.Flag("force").Value.String()
 
 		// Check if an update is even required
-		updCheckUrl := helpers.GetAssetsURL() + "/" + ProjectName + "/current_rev"
+		updCheckUrl := helpers.GetAssetsURL() + "/dev/" + ProjectName + "/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
 		currRev, err := helpers.DownloadFileWithProgress(updCheckUrl)
 

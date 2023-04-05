@@ -217,7 +217,7 @@ var applyCmd = &cobra.Command{
 		// Check args as to which file to use
 		seedFile := args[0]
 
-		assetsUrl := helpers.GetAssetsURL()
+		assetsUrl := helpers.GetAssetsURL() + "/dev"
 
 		if seedFile == "latest" {
 			// Download seedfile with progress bar
