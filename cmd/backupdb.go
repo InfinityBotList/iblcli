@@ -41,13 +41,13 @@ func mkBackup() {
 		return
 	}
 
-	var passFile = "/certs/bakkey"
+	var passFile = "/db/bakkey"
 
 	if os.Getenv("ALT_BAK_KEY") != "" {
 		passFile = os.Getenv("ALT_BAK_KEY")
 	}
 
-	var outFolder = "/certs/backups"
+	var outFolder = "/db/backups"
 
 	if os.Getenv("ALT_BAK_OUT") != "" {
 		outFolder = os.Getenv("ALT_BAK_OUT")
