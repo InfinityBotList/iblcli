@@ -145,7 +145,7 @@ var newCmd = &cobra.Command{
 		// Close tar file
 		tarWriter.Close()
 
-		compressed, err := os.Create("seed.iblseed")
+		compressed, err := os.Create("work/seed.iblseed")
 
 		if err != nil {
 			fmt.Println("Failed to create compressed file:", err)
@@ -160,11 +160,43 @@ var newCmd = &cobra.Command{
 		_, err = io.Copy(w, tarFile)
 
 		if err != nil {
-			fmt.Println("Failed to compress file:", err)
+			fmt.Println("ERROR: Failed to compress file:", err)
 			return
 		}
 
 		w.Close()
+
+		// Generate schema for CI
+		pool, err := helpers.GetPool()
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to get pool:", err)
+			return
+		}
+
+		schema, err := helpers.GetSchema(context.Background(), pool)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to get schema for CI etc.:", err)
+			return
+		}
+
+		// Dump schema to JSON file named "seed-ci.json"
+		schemaFile, err = os.Create("work/seed-ci.json")
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to create schema file:", err)
+			return
+		}
+
+		defer schemaFile.Close()
+
+		err = json.NewEncoder(schemaFile).Encode(schema)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to write schema file:", err)
+			return
+		}
 
 		// Try to find seeds folder (devel assets server)
 		path := "/iblcdn/public/dev"
@@ -172,7 +204,13 @@ var newCmd = &cobra.Command{
 
 		if err == nil {
 			fmt.Println("Mpving seed to found folder: " + path)
-			err = os.Rename("seed.iblseed", path+"/seed.iblseed")
+			err = os.Rename("work/seed.iblseed", path+"/seed.iblseed")
+
+			if err != nil {
+				fmt.Println("Failed to copy seed to devel assets server:", err)
+			}
+
+			err = os.Rename("work/seed-ci.json", path+"/seed-ci.json")
 
 			if err != nil {
 				fmt.Println("Failed to copy seed to devel assets server:", err)
