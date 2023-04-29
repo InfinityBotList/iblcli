@@ -15,7 +15,8 @@ func IsSecret(tableName, columnName string) bool {
 	// TODO> Add secret columns here
 	secretCols := [][2]string{
 		{"*", "api_token"},
-		{"*", "webhook_secret"},
+		{"*", "webhook"},
+		{"*", "web_auth"},
 	}
 
 	for _, col := range secretCols {
