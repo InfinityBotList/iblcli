@@ -19,17 +19,6 @@ type NginxFile struct {
 
 type FileList []NginxFile
 
-// Does not include all keys sent by API, only ones we need
-type PermDetailMap struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Desc string `json:"desc"`
-}
-
-type PermissionResponse struct {
-	Perms []PermDetailMap `json:"perms"`
-}
-
 func addTypings(remoteDir, localDir string) error {
 	fmt.Println("=>", localDir, "( "+remoteDir+" )")
 
