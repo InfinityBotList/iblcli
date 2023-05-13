@@ -99,25 +99,29 @@ var typegenCmd = &cobra.Command{
 
 		helpers.ClientURL = "https://cdn.infinitybots.gg"
 
-		err := addTypings("dev/bindings/arcadia", "arcadia")
+		// Find list of all bindings
+		res, err := helpers.NewReq().Get("json/dev/bindings").Do()
 
 		if err != nil {
-			fmt.Println("Error with arcadia:", err)
+			fmt.Println("Error getting response:", err)
 			return
 		}
 
-		err = addTypings("dev/bindings/persepolis", "persepolis")
+		var blist FileList
+
+		err = res.JsonOk(&blist)
 
 		if err != nil {
-			fmt.Println("Error with persepolis:", err)
-			return
+			fmt.Println("Error unmarshalling response:", err)
 		}
 
-		err = addTypings("dev/bindings/popplio", "popplio")
+		for _, binding := range blist {
+			err := addTypings("dev/bindings/"+binding.Name, binding.Name)
 
-		if err != nil {
-			fmt.Println("Error with popplio:", err)
-			return
+			if err != nil {
+				fmt.Println("Error with "+binding.Name, err)
+				return
+			}
 		}
 
 		helpers.ClientURL = helpers.APIUrl
