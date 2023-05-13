@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/spf13/cobra"
@@ -114,46 +113,6 @@ var typegenCmd = &cobra.Command{
 		}
 
 		helpers.ClientURL = helpers.APIUrl
-
-		// Team Permissions
-		permRes, err := helpers.NewReq().Get("teams/meta/permissions").Do()
-
-		if err != nil {
-			fmt.Println("Error getting permissions:", err)
-			return
-		}
-
-		var perms PermissionResponse
-
-		err = permRes.JsonOk(&perms)
-
-		if err != nil {
-			fmt.Println("Error getting permissions:", err)
-			return
-		}
-
-		teamPermEnumStr := "export enum TeamPermissions {\n"
-
-		for _, perm := range perms.Perms {
-			teamPermEnumStr += "	" + strings.ReplaceAll(perm.Name, " ", "") + " = \"" + perm.ID + "\", // " + perm.Desc + "\n"
-		}
-
-		teamPermEnumStr += "}"
-
-		// Write to teamPerms.ts
-		f, err := os.Create("src/utils/generated/teamPerms.ts")
-
-		if err != nil {
-			fmt.Println("Error creating file:", err)
-			return
-		}
-
-		_, err = f.WriteString(teamPermEnumStr)
-
-		if err != nil {
-			fmt.Println("Error writing file:", err)
-			return
-		}
 	},
 }
 
