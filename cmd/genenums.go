@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
@@ -28,7 +29,6 @@ var genEnumsCmd = &cobra.Command{
 	Short: "Generate enums for teams and other objects",
 	Long:  `Generate enums for teams and other objects`,
 	Run: func(cmd *cobra.Command, args []string) {
-		helpers.ClientSilent = true
 		permRes, err := helpers.NewReq().Get("teams/meta/permissions").Do()
 
 		if err != nil {
@@ -53,7 +53,20 @@ var genEnumsCmd = &cobra.Command{
 
 		teamPermEnumStr += "}"
 
-		fmt.Printf(teamPermEnumStr)
+		// Save to /iblcdn/public/dev/bindings/popplio/team-perms.ts
+		f, err := os.Create("/iblcdn/public/dev/bindings/popplio/team-perms.ts")
+
+		if err != nil {
+			fmt.Println("Error creating file:", err)
+			return
+		}
+
+		_, err = f.WriteString(teamPermEnumStr)
+
+		if err != nil {
+			fmt.Println("Error writing to file:", err)
+			return
+		}
 	},
 }
 

@@ -14,7 +14,6 @@ const (
 )
 
 var ClientURL = APIUrl
-var ClientSilent = false
 
 // Makes a request to the API
 func request(method string, path string, jsonP any, headers map[string]string) (*ClientResponse, error) {
@@ -32,9 +31,7 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 		}
 	}
 
-	if !ClientSilent {
-		fmt.Println(method, ClientURL+path, " (reqBody:", len(body), "bytes)")
-	}
+	fmt.Println(method, ClientURL+path, " (reqBody:", len(body), "bytes)")
 
 	req, err := http.NewRequest(method, ClientURL+path, bytes.NewReader(body))
 
