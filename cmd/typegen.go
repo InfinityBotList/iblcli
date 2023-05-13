@@ -4,10 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -33,94 +30,97 @@ type PermissionResponse struct {
 	Perms []PermDetailMap `json:"perms"`
 }
 
+func addTypings(remoteDir, localDir string) error {
+	fmt.Println("=>", localDir, "( "+remoteDir+" )")
+
+	res, err := helpers.NewReq().Get("json/" + remoteDir).Do()
+
+	if err != nil {
+		fmt.Println("Error getting response:", err)
+		return err
+	}
+
+	var list FileList
+
+	err = res.JsonOk(&list)
+
+	if err != nil {
+		fmt.Println("Error unmarshalling response:", err)
+		return err
+	}
+
+	os.MkdirAll("src/utils/generated/"+localDir, 0755)
+
+	for i, file := range list {
+		fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Downloading", file.Name)
+
+		res, err := helpers.NewReq().Get(remoteDir + "/" + file.Name).Do()
+
+		if err != nil {
+			fmt.Println("Error downloading file:", err)
+			return err
+		}
+
+		bytes, err := res.BodyOk()
+
+		if err != nil {
+			fmt.Println("Error reading file")
+			return err
+		}
+
+		f, err := os.Create("src/utils/generated/" + localDir + "/" + file.Name)
+
+		if err != nil {
+			fmt.Println("Error creating file:", err)
+			return err
+		}
+
+		_, err = f.Write(bytes)
+
+		if err != nil {
+			fmt.Println("Error writing file:", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 // typegenCmd represents the typegen command
 var typegenCmd = &cobra.Command{
 	Use:   "typegen",
 	Short: "Generate typings for the frontend of IBL",
 	Long:  `Generate typings for the frontend of IBL.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cleanup := func() {
-			fmt.Println("Cleaning up...")
+		// Remove any existing src/utils/generated folder if it exists
+		os.RemoveAll("src/utils/generated")
 
-			// delete all files in work directory
-			err := os.RemoveAll("work")
+		os.MkdirAll("src/utils/generated", 0755)
 
-			if err != nil {
-				fmt.Println("Error cleaning up:", err)
-			}
-		}
+		helpers.ClientURL = "https://cdn.infinitybots.gg"
 
-		defer cleanup()
-
-		// create a work directory
-		err := os.Mkdir("work", 0755)
+		err := addTypings("dev/bindings/arcadia", "arcadia")
 
 		if err != nil {
-			fmt.Println("Error creating work directory:", err)
+			fmt.Println("Error with arcadia:", err)
 			return
 		}
 
-		fmt.Println("Downloading RPC")
-
-		assetsUrl := helpers.GetAssetsURL()
-
-		resp, err := http.Get(assetsUrl + "/json/dev/apiBindings/")
+		err = addTypings("dev/bindings/persepolis", "persepolis")
 
 		if err != nil {
-			fmt.Println("Error downloading RPC:", err)
+			fmt.Println("Error with persepolis:", err)
 			return
 		}
 
-		if resp.StatusCode != http.StatusOK {
-			fmt.Println("Error downloading RPC:", resp.Status)
-			return
-		}
-
-		var list FileList
-
-		err = json.NewDecoder(resp.Body).Decode(&list)
+		err = addTypings("dev/bindings/popplio", "popplio")
 
 		if err != nil {
-			fmt.Println("Error decoding JSON:", err)
+			fmt.Println("Error with popplio:", err)
 			return
 		}
 
-		for i, file := range list {
-			fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Downloading", file.Name)
-
-			resp, err := http.Get(assetsUrl + "/dev/apiBindings/" + file.Name)
-
-			if err != nil {
-				fmt.Println("Error downloading file:", err)
-				return
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				fmt.Println("Error downloading file:", resp.Status)
-				return
-			}
-
-			f, err := os.Create("work/" + file.Name)
-
-			if err != nil {
-				fmt.Println("Error creating file:", err)
-				return
-			}
-
-			bytes, err := io.ReadAll(resp.Body)
-
-			if err != nil {
-				fmt.Println("Error reading body:", err)
-				return
-			}
-
-			_, err = f.Write(bytes)
-
-			if err != nil {
-				fmt.Println("Error writing file:", err)
-				return
-			}
-		}
+		helpers.ClientURL = helpers.APIUrl
 
 		// Team Permissions
 		permRes, err := helpers.NewReq().Get("teams/meta/permissions").Do()
@@ -148,7 +148,7 @@ var typegenCmd = &cobra.Command{
 		teamPermEnumStr += "}"
 
 		// Write to teamPerms.ts
-		f, err := os.Create("work/teamPerms.ts")
+		f, err := os.Create("src/utils/generated/teamPerms.ts")
 
 		if err != nil {
 			fmt.Println("Error creating file:", err)
@@ -160,37 +160,6 @@ var typegenCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Error writing file:", err)
 			return
-		}
-
-		// Check for src/utils/generated
-		os.MkdirAll("src/utils/generated", 0755)
-		fmt.Println("Copying files to src/utils/generated")
-
-		// copy all files in work to src/utils/generated
-		fileList, err := os.ReadDir("work")
-
-		if err != nil {
-			fmt.Println("Error reading work directory:", err)
-			return
-		}
-
-		for i, file := range fileList {
-			fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Copying", file.Name())
-
-			// Read file
-			b, err := os.ReadFile("work/" + file.Name())
-
-			if err != nil {
-				fmt.Println("Error opening file:", err)
-				return
-			}
-
-			err = os.WriteFile("src/utils/generated/"+file.Name(), b, 0755)
-
-			if err != nil {
-				fmt.Println("Error creating file:", err)
-				return
-			}
 		}
 	},
 }

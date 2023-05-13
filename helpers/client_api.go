@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 )
 
 const (
-	apiUrl = "https://spider.infinitybots.gg"
+	APIUrl = "https://spider.infinitybots.gg"
 )
+
+var ClientURL = APIUrl
 
 // Makes a request to the API
 func request(method string, path string, jsonP any, headers map[string]string) (*ClientResponse, error) {
@@ -28,9 +31,9 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 		}
 	}
 
-	fmt.Println(method, apiUrl+path, " (body:", len(body), "bytes)")
+	fmt.Println(method, ClientURL+path, " (reqBody:", len(body), "bytes)")
 
-	req, err := http.NewRequest(method, apiUrl+path, bytes.NewReader(body))
+	req, err := http.NewRequest(method, ClientURL+path, bytes.NewReader(body))
 
 	if err != nil {
 		return nil, err
@@ -77,6 +80,20 @@ func (c ClientResponse) JsonOk(v any) error {
 // Unmarshals the response body into the given struct
 func (c ClientResponse) Json(v any) error {
 	return json.NewDecoder(c.Response.Body).Decode(v)
+}
+
+// Returns the response body
+func (c ClientResponse) Body() ([]byte, error) {
+	return io.ReadAll(c.Response.Body)
+}
+
+// Returns the response body if the response is OK otherwise returns error
+func (c ClientResponse) BodyOk() ([]byte, error) {
+	if c.Response.StatusCode != 200 {
+		return nil, fmt.Errorf("error status code %d", c.Response.StatusCode)
+	}
+
+	return c.Body()
 }
 
 // Returns the retry after header. Is a string
