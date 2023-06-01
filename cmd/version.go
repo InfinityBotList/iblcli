@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,8 @@ var versionCmd = &cobra.Command{
 		fmt.Println("buildRev:", BuildRev)
 		fmt.Println("buildTime:", BuildTime)
 		fmt.Println("seedApiVersion:", seedApiVer)
+		fmt.Println("goInfo:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+		fmt.Println("devMode:", DevMode)
 
 		fmt.Println("\nCopyright © 2022 Infinity Bot List")
 		fmt.Println("Licensed under the MIT license. See LICENSE file in the project root for full license information.")
@@ -28,14 +31,4 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// versionCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// versionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

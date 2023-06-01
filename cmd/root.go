@@ -7,6 +7,8 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +21,8 @@ var (
 	BuildTime string
 	// Project name is the name of the project
 	ProjectName string
+	// Whether or not dev mode is enabled
+	DevMode types.DevMode
 )
 
 func init() {
@@ -67,4 +71,21 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	// Look for devmode config
+	var mode types.DevModeCfg
+	err := helpers.LoadAndMarshalConfig("dev", &mode)
+
+	if err != nil {
+		DevMode = types.DevModeOff
+	} else {
+		switch mode.Mode {
+		case "off":
+			DevMode = types.DevModeOff
+		case "local":
+			DevMode = types.DevModeLocal
+		case "full":
+			DevMode = types.DevModeFull
+		}
+	}
 }

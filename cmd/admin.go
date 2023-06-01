@@ -1,6 +1,3 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -8,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
@@ -101,18 +99,10 @@ var adminCmd = &cobra.Command{
 }
 
 func init() {
-	adminCmd.AddCommand(addExpCommand)
-	adminCmd.AddCommand(remExpCommand)
+	if DevMode == types.DevModeFull {
+		adminCmd.AddCommand(addExpCommand)
+		adminCmd.AddCommand(remExpCommand)
 
-	rootCmd.AddCommand(adminCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// adminCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// adminCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+		rootCmd.AddCommand(adminCmd)
+	}
 }

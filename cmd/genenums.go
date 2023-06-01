@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -71,5 +72,7 @@ var genEnumsCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(genEnumsCmd)
+	if DevMode == types.DevModeFull {
+		rootCmd.AddCommand(genEnumsCmd)
+	}
 }

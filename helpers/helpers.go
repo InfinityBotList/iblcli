@@ -306,3 +306,19 @@ func LoadConfig(name string) (string, bool) {
 		return buf.String(), true
 	}
 }
+
+func LoadAndMarshalConfig(name string, dst any) error {
+	cfg, ok := LoadConfig(name)
+
+	if !ok {
+		return fmt.Errorf("config file %s does not exist", name)
+	}
+
+	err := json.Unmarshal([]byte(cfg), &dst)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

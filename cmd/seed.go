@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/infinitybotlist/eureka/crypto"
 
 	"github.com/spf13/cobra"
@@ -513,8 +514,9 @@ var applyCmd = &cobra.Command{
 }
 
 func init() {
-	// seed new
-	seedCmd.AddCommand(newCmd)
+	if DevMode == types.DevModeFull {
+		seedCmd.AddCommand(newCmd)
+	}
 
 	// seed apply
 	seedCmd.AddCommand(applyCmd)
@@ -525,14 +527,4 @@ func init() {
 	newCmd.Flags().StringP("password", "p", "", "Password to encrypt seed file with. Otherwise interactive prompt will be used")
 
 	applyCmd.Flags().StringP("password", "p", "", "Password to decrypt seed file with. Otherwise interactive prompt will be used if required")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// seedCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// seedCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

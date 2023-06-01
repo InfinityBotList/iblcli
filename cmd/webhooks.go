@@ -4,11 +4,12 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/lib"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -19,64 +20,46 @@ var setupCmd = &cobra.Command{
 	Short: "Sets up the a bot for webhooks.",
 	Long:  "Sets up a bot for webhooks.",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Print(helpers.BoldBlueText(helpers.AddUnderDecor("Prep Work [1/2]")))
-		var flag bool = true
-		for flag {
-			conf, ok := helpers.LoadConfig("auth@user")
+		auth := lib.AccountSwitcher()
 
-			if !ok {
-				fmt.Print(helpers.RedText("You are not logged in on IBL CLI yet! A login is required for proper configuration and setup..."))
-				os.Setenv("REQUIRED_AUTH_METHOD", "user")
-				loginCmd.Run(cmd, args)
-			} else {
-				var a types.TestAuth
+		fmt.Println("AuthSwitcher:", auth) // temporary to avoid a compile error
 
-				err := json.Unmarshal([]byte(conf), &a)
+		var funnels *types.FunnelList
+		err := helpers.LoadAndMarshalConfig("funnels", &funnels)
+
+		if err != nil {
+			port := helpers.GetInput("What port should the webserver run on?", func(s string) bool {
+				// Check if port is a number
+				_, err := strconv.Atoi(s)
 
 				if err != nil {
-					fmt.Print(helpers.RedText("Error loading config: " + err.Error() + ", reauthenticating..."))
-					os.Setenv("REQUIRED_AUTH_METHOD", "user")
-					loginCmd.Run(cmd, args)
+					fmt.Fprint(os.Stderr, helpers.RedText("Invalid port number"))
+					return false
 				}
 
-				username, err := helpers.GetUsername(a.TargetID)
+				return true
+			})
 
-				if err != nil {
-					fmt.Print(helpers.RedText("Error getting username: " + err.Error() + ", reauthenticating..."))
-					os.Setenv("REQUIRED_AUTH_METHOD", "user")
-					loginCmd.Run(cmd, args)
-				}
+			// Write funnels file
+			portNum, err := strconv.Atoi(port)
 
-				confirm := helpers.GetInput(fmt.Sprint("You're logged in as", helpers.BoldText(username), "Continue [y/n]"), func(s string) bool {
-					return s == "y" || s == "n"
-				})
-
-				if confirm == "n" {
-					os.Setenv("REQUIRED_AUTH_METHOD", "user")
-					loginCmd.Run(cmd, args)
-				}
+			if err != nil {
+				fmt.Fprint(os.Stderr, helpers.RedText("Invalid port number"))
+				os.Exit(1)
 			}
 
-			fmt.Println("Excellent! You're logged in!")
-			flag = false
-		}
+			funnels = &types.FunnelList{
+				Port:    portNum,
+				Funnels: []types.WebhookFunnel{},
+			}
 
-		flag = true
-		for flag {
-			_, ok := helpers.LoadConfig("secret")
+			err = helpers.WriteConfig("funnels", funnels)
 
-			if !ok {
-				fmt.Print(helpers.RedText("You don't have a webhook secret set yet!"))
-				fmt.Print(helpers.RedText("For security purposes, this is required before you can start using the webhook server"))
-
-				setWebhookSecretCmd.Run(cmd, args)
-			} else {
-				fmt.Println("Excellent! Your webhook secret appears to be set!")
-				flag = false
+			if err != nil {
+				fmt.Fprint(os.Stderr, helpers.RedText("Config save error: "+err.Error()))
+				os.Exit(1)
 			}
 		}
-
-		// Choose notification method
 	},
 }
 

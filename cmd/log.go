@@ -6,6 +6,7 @@ package cmd
 import (
 	"os/exec"
 
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -45,16 +46,9 @@ var logCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(logCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// logsCmd.PersistentFlags().String("foo", "", "A help for foo")
-	logCmd.Flags().StringP("lines", "l", "300", "Number of lines to show")
-	logCmd.Flags().BoolP("begin", "b", false, "Start at beginning of log")
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// logsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	if DevMode == types.DevModeFull {
+		rootCmd.AddCommand(logCmd)
+		logCmd.Flags().StringP("lines", "l", "300", "Number of lines to show")
+		logCmd.Flags().BoolP("begin", "b", false, "Start at beginning of log")
+	}
 }

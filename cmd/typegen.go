@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +38,13 @@ func addTypings(remoteDir, localDir string) error {
 		return err
 	}
 
-	os.MkdirAll("src/utils/generated/"+localDir, 0755)
+	var path = "src/utils/generated"
+
+	if os.Getenv("IBL_PATH") != "" {
+		path = os.Getenv("IBL_PATH")
+	}
+
+	os.MkdirAll(path+"/"+localDir, 0755)
 
 	for i, file := range list {
 		fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Downloading", file.Name)
@@ -56,7 +63,7 @@ func addTypings(remoteDir, localDir string) error {
 			return err
 		}
 
-		f, err := os.Create("src/utils/generated/" + localDir + "/" + file.Name)
+		f, err := os.Create(path + "/" + localDir + "/" + file.Name)
 
 		if err != nil {
 			fmt.Println("Error creating file:", err)
@@ -80,10 +87,16 @@ var typegenCmd = &cobra.Command{
 	Short: "Generate typings for the frontend of IBL",
 	Long:  `Generate typings for the frontend of IBL.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Remove any existing src/utils/generated folder if it exists
-		os.RemoveAll("src/utils/generated")
+		var path = "src/utils/generated"
 
-		os.MkdirAll("src/utils/generated", 0755)
+		if os.Getenv("IBL_PATH") != "" {
+			path = os.Getenv("IBL_PATH")
+		}
+
+		// Remove any existing src/utils/generated folder if it exists
+		os.RemoveAll(path)
+
+		os.MkdirAll(path, 0755)
 
 		helpers.ClientURL = "https://cdn.infinitybots.gg"
 
@@ -117,5 +130,7 @@ var typegenCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(typegenCmd)
+	if DevMode == types.DevModeLocal {
+		rootCmd.AddCommand(typegenCmd)
+	}
 }

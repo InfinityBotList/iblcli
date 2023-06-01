@@ -14,21 +14,24 @@ const (
 	TargetTypeServer TargetType = "server"
 )
 
-type NotifyMethod int
+type WebhookFunnel struct {
+	TargetType    TargetType `json:"target_type"`
+	TargetID      string     `json:"target_id"`
+	WebhookSecret string     `json:"webhook_secret"`
+	EndpointID    string     `json:"endpoint_id"`
+	Forward       string     `json:"forward"`
+}
 
-const (
-	NotifyMethodWebhook NotifyMethod = iota
-	NotifyMethodHTTP
-)
+type FunnelList struct {
+	Port    int             `json:"port"`
+	Funnels []WebhookFunnel `json:"funnels"`
+}
 
+// Auth data
 type AuthData struct {
 	TargetType TargetType `json:"target_type"`
 	ID         string     `json:"id"`
 	Authorized bool       `json:"authorized"`
-}
-
-type WebhookSecret struct {
-	Secret string `json:"secret"`
 }
 
 // oauth2
@@ -49,4 +52,16 @@ type AuthorizeRequest struct {
 type UserLogin struct {
 	Token  string `json:"token" description:"The users token"`
 	UserID string `json:"user_id" description:"The users ID"`
+}
+
+type DevMode string
+
+const (
+	DevModeFull  DevMode = "full"
+	DevModeLocal DevMode = "local"
+	DevModeOff   DevMode = "off"
+)
+
+type DevModeCfg struct {
+	Mode DevMode `json:"mode"`
 }
