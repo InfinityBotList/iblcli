@@ -23,6 +23,10 @@ var funnelActions = map[string]funnelAction{
 		Name:   "Change webserver port",
 		Action: portMan,
 	},
+	"N": {
+		Name:   "New funnel",
+		Action: newFunnel,
+	},
 	"Q": {
 		Name: "Quit",
 		Action: func(funnels *types.FunnelList) error {
@@ -98,5 +102,9 @@ func portMan(funnels *types.FunnelList) error {
 
 	funnels.Port = portNum
 
+	return nil
+}
+
+func newFunnel(funnels *types.FunnelList) error {
 	return nil
 }
