@@ -130,7 +130,7 @@ var typegenCmd = &cobra.Command{
 }
 
 func init() {
-	if DevMode == types.DevModeLocal {
+	if helpers.DevMode().Allows(types.DevModeLocal) {
 		rootCmd.AddCommand(typegenCmd)
 	}
 }

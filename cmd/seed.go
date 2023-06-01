@@ -514,7 +514,7 @@ var applyCmd = &cobra.Command{
 }
 
 func init() {
-	if DevMode == types.DevModeFull {
+	if helpers.DevMode().Allows(types.DevModeFull) {
 		seedCmd.AddCommand(newCmd)
 	}
 

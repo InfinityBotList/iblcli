@@ -99,7 +99,7 @@ var adminCmd = &cobra.Command{
 }
 
 func init() {
-	if DevMode == types.DevModeFull {
+	if helpers.DevMode().Allows(types.DevModeFull) {
 		adminCmd.AddCommand(addExpCommand)
 		adminCmd.AddCommand(remExpCommand)
 

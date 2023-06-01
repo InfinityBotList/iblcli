@@ -36,6 +36,8 @@ var devModeToggle = &cobra.Command{
 			panic("Invalid dev mode")
 		}
 
+		var DevMode types.DevMode
+
 		switch devMode {
 		case "off":
 			DevMode = types.DevModeOff

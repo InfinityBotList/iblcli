@@ -72,7 +72,7 @@ var genEnumsCmd = &cobra.Command{
 }
 
 func init() {
-	if DevMode == types.DevModeFull {
+	if helpers.DevMode().Allows(types.DevModeFull) {
 		rootCmd.AddCommand(genEnumsCmd)
 	}
 }
