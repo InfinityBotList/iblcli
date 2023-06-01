@@ -275,7 +275,9 @@ func Write(fn string, data any) error {
 		return err
 	}
 
-	fmt.Println("Write: wrote", w, "lines to", fn)
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Println("Write: wrote", w, "bytes to", fn)
+	}
 
 	return nil
 }

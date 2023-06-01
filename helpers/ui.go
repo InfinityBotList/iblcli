@@ -6,14 +6,14 @@ import (
 
 var (
 	BoldText     = color.New(color.Bold).SprintlnFunc()
-	BlueText     = color.New(color.FgBlue).SprintlnFunc()
+	BlueText     = color.New(color.FgCyan).SprintlnFunc()
 	RedText      = color.New(color.FgRed).SprintlnFunc()
 	YellowText   = color.New(color.FgYellow).SprintlnFunc()
 	PurpleText   = color.New(color.FgMagenta).SprintlnFunc()
 	GreenText    = color.New(color.FgGreen).SprintlnFunc()
 	NormalText   = color.New(color.FgWhite).SprintlnFunc()
 	OrangeText   = color.New(color.FgHiRed).SprintlnFunc()
-	BoldBlueText = color.New(color.Bold, color.FgBlue).SprintlnFunc()
+	BoldBlueText = color.New(color.Bold, color.FgCyan).SprintlnFunc()
 
 	// Same line purple text
 	PurpleTextSL = color.New(color.FgMagenta).SprintFunc()

@@ -74,7 +74,9 @@ func webAuthUser() (string, string, error) {
 	// Wait for login
 	login := <-loginCh
 
-	fmt.Println("Got login code", login.code, "with state", login.state)
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Println("Logging in: code="+login.code, "| state="+login.state)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
@@ -123,32 +125,6 @@ func webAuthUser() (string, string, error) {
 	}
 
 	return loginData.UserID, loginData.Token, nil
-}
-
-func GetUsername(userId string) (string, error) {
-	resp, err := helpers.NewReq().Get("users/" + userId).Do()
-
-	if err != nil {
-		return "", err
-	}
-
-	if resp.Response.StatusCode != 200 {
-		return "", fmt.Errorf("error getting username, got status code %d", resp.Response.StatusCode)
-	}
-
-	var user struct {
-		User struct {
-			Username string `json:"username"`
-		} `json:"user"`
-	}
-
-	err = resp.Json(&user)
-
-	if err != nil {
-		return "", err
-	}
-
-	return user.User.Username, nil
 }
 
 func LoginUser() {
@@ -233,7 +209,9 @@ func LoginUser() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Server Response:", payload)
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Println("Server Response:", payload)
+	}
 
 	// Write the config
 	err = helpers.WriteConfig("auth@"+string(payload.TargetType), types.TestAuth{
@@ -246,6 +224,30 @@ func LoginUser() {
 		fmt.Println("Error writing config:", err)
 		os.Exit(1)
 	}
+}
+
+func GetUsername(userId string) (string, error) {
+	resp, err := helpers.NewReq().Get("users/" + userId + "/seo").Do()
+
+	if err != nil {
+		return "", err
+	}
+
+	if resp.Response.StatusCode != 200 {
+		return "", fmt.Errorf("error getting username, got status code %d", resp.Response.StatusCode)
+	}
+
+	var user struct {
+		Username string `json:"username"`
+	}
+
+	err = resp.Json(&user)
+
+	if err != nil {
+		return "", err
+	}
+
+	return user.Username, nil
 }
 
 func AccountSwitcher() types.TestAuth {
@@ -279,7 +281,7 @@ func AccountSwitcher() types.TestAuth {
 			}
 		}
 
-		fmt.Println("Excellent! You're logged in!")
+		fmt.Print(helpers.GreenText("Excellent! You're logged in!"))
 		flag = false
 
 		auth = *a

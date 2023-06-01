@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -31,7 +32,9 @@ func request(method string, path string, jsonP any, headers map[string]string) (
 		}
 	}
 
-	fmt.Println(method, ClientURL+path, " (reqBody:", len(body), "bytes)")
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Println(method, ClientURL+path, " (reqBody:", len(body), "bytes)")
+	}
 
 	req, err := http.NewRequest(method, ClientURL+path, bytes.NewReader(body))
 
