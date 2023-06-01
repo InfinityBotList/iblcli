@@ -240,7 +240,13 @@ func ConfigFile() string {
 		panic("Error getting config dir")
 	}
 
-	return s
+	err = os.MkdirAll(s+"/infinity", 0700)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return s + "/infinity"
 }
 
 func WriteConfig(name string, data any) error {

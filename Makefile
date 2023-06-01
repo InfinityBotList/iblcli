@@ -21,6 +21,7 @@ publish:
 	for combo in $(COMBOS); do \
 		echo "$$combo"; \
 		CGO_ENABLED=0 GOOS=$${combo%/*} GOARCH=$${combo#*/} go build -o bin/$$combo/ibl $(GOFLAGS); \
+		sha512sum bin/$$combo/ibl > bin/$$combo/ibl.sha512; \
 	done
 
 	# Rename all the windows binaries to .exe

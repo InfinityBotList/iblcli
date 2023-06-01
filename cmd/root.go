@@ -4,10 +4,8 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"runtime/debug"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -60,19 +58,6 @@ func Execute() {
 }
 
 func init() {
-	// Legacy update code
-	if os.Getenv("IN_UPDATE") == "1" {
-		fmt.Println("Update successful!\n\nversion:", GitCommit, "| pcPath:", os.Getenv("PC_PATH"), "| buildRev:", BuildRev, "| buildTime:", BuildTime)
-
-		// Give time for old process to exit
-		time.Sleep(500 * time.Millisecond)
-
-		// Rename new binary
-		os.Rename(os.Getenv("PC_PATH")+".new", os.Getenv("PC_PATH"))
-		os.Rename(os.Getenv("PC_PATH")+".new.exe", os.Getenv("PC_PATH"))
-		os.Exit(0)
-	}
-
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persstent flags, which, if defined here,
 	// will be global for your application.

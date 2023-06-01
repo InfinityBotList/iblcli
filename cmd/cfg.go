@@ -4,16 +4,132 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
+	"time"
+
+	"net/http"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/spf13/cobra"
 )
+
+type iLogin struct {
+	code  string
+	state string
+}
+
+var loginCh = make(chan iLogin)
+
+func init() {
+	// Load login webserver
+	http.HandleFunc("/auth/sauron", func(w http.ResponseWriter, r *http.Request) {
+		code := r.URL.Query().Get("code")
+		state := r.URL.Query().Get("state")
+
+		w.Write([]byte("You can now close this window"))
+
+		loginCh <- iLogin{
+			code:  code,
+			state: state,
+		}
+	})
+}
+
+func webAuthUser() (string, string, error) {
+	resp, err := helpers.NewReq().Get("list/oauth2").Do()
+
+	if err != nil {
+		return "", "", errors.New("error occurred while getting OAuth2 URL: " + err.Error())
+	}
+
+	var oauth2Data types.OauthMeta
+
+	err = resp.Json(&oauth2Data)
+
+	if err != nil {
+		fmt.Print(helpers.RedText("Error parsing OAuth2 URL: " + err.Error()))
+		return "", "", err
+	}
+
+	// Open a http server on port 3000
+	srv := &http.Server{Addr: ":3000"}
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	state := crypto.RandString(32)
+
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Print(helpers.BlueText("Please open the following URL in your browser and follow the instructions:"))
+	fmt.Println("")
+	fmt.Println(strings.ReplaceAll(oauth2Data.URL, "%REDIRECT_URL%", "http://localhost:3000") + "&state=" + state)
+
+	// Wait for login
+	login := <-loginCh
+
+	fmt.Println("Got login code", login.code, "with state", login.state)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+
+	srv.Shutdown(ctx)
+
+	cancel()
+
+	if login.state != state {
+		time.Sleep(5 * time.Second)
+		return "", "", errors.New("invalid state, please try again")
+	}
+
+	// Exchange code for token
+	resp, err = helpers.NewReq().Put("users").Json(types.AuthorizeRequest{
+		ClientID:    oauth2Data.ClientID,
+		Code:        login.code,
+		Scope:       "external_auth",
+		Nonce:       "@external",
+		RedirectURI: "http://localhost:3000/auth/sauron",
+	}).Do()
+
+	if err != nil {
+		time.Sleep(5 * time.Second)
+		return "", "", errors.New("error occurred while exchanging code for token: " + err.Error())
+	}
+
+	if resp.Response.StatusCode != 200 {
+		fmt.Println("Login failed, got response code", resp.Response.StatusCode)
+
+		body, err := resp.Body()
+
+		if err != nil {
+			return "", "", errors.New("error occurred while parsing error when exchanging code for token: " + err.Error())
+		}
+
+		fmt.Println("Error body:", string(body))
+		return "", "", errors.New("login failed, got response code " + fmt.Sprint(resp.Response.StatusCode))
+	}
+
+	var loginData types.UserLogin
+
+	err = resp.Json(&loginData)
+
+	if err != nil {
+		return "", "", errors.New("error occurred while parsing login data: " + err.Error())
+	}
+
+	return loginData.UserID, loginData.Token, nil
+}
 
 // cfgCmd represents the cfg command
 var cfgCmd = &cobra.Command{
@@ -25,19 +141,23 @@ var cfgCmd = &cobra.Command{
 var loginCmd = &cobra.Command{
 	Use:     "login",
 	Short:   "Login to the IBL API",
-	Long:    `Login to the IBL API using a bot or user token.`,
+	Long:    `Login to the IBL API using a bot/user/server token.`,
 	Aliases: []string{"auth", "a", "l"},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(helpers.BoldBlueText(helpers.AddUnderDecor("Login")))
 
-		var authType = helpers.GetInput("Auth Type (bot/user/server)", func(s string) bool {
-			if strings.ToLower(s) == "bot" || strings.ToLower(s) == "user" || strings.ToLower(s) == "server" {
-				return true
-			} else {
-				fmt.Fprintln(os.Stderr, "Invalid auth type. Choose from bot, user or server")
-				return false
-			}
-		})
+		var authType = os.Getenv("REQUIRED_AUTH_METHOD")
+
+		if strings.ToLower(authType) != "bot" && strings.ToLower(authType) != "user" && strings.ToLower(authType) != "server" {
+			authType = helpers.GetInput("Auth Type (bot/user/server)", func(s string) bool {
+				if strings.ToLower(s) == "bot" || strings.ToLower(s) == "user" || strings.ToLower(s) == "server" {
+					return true
+				} else {
+					fmt.Fprintln(os.Stderr, "Invalid auth type. Choose from bot, user or server")
+					return false
+				}
+			})
+		}
 
 		var targetType types.TargetType
 
@@ -53,13 +173,32 @@ var loginCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var targetID = helpers.GetInput("Target ID [user/bot/server ID, vanities are also supported if applicable]", func(s string) bool {
-			return len(s) > 0
-		})
+		var targetID string
+		var token string
+		if targetType == types.TargetTypeUser {
+			var webAuth = helpers.GetInput("Do you have a working browser for web auth right now? If not, type 'no' to use standard token auth. Headless/server users should also type 'no' here", func(s string) bool {
+				return s == "yes" || s == "no"
+			})
 
-		token := helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
+			if webAuth == "yes" {
+				// Create external auth
+				var err error
+				targetID, token, err = webAuthUser()
 
-		fmt.Println(token)
+				if err != nil {
+					fmt.Print(helpers.RedText("ERROR: " + err.Error()))
+					os.Exit(1)
+				}
+			}
+		}
+
+		if len(targetID) == 0 {
+			targetID = helpers.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
+				return len(s) > 0
+			})
+
+			token = helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
+		}
 
 		// Check auth with API
 		resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
@@ -89,7 +228,7 @@ var loginCmd = &cobra.Command{
 		fmt.Println("Server Response:", payload)
 
 		// Write the config
-		err = helpers.WriteConfig("auth", types.TestAuth{
+		err = helpers.WriteConfig("auth@"+string(payload.TargetType), types.TestAuth{
 			AuthType: payload.TargetType,
 			TargetID: payload.ID,
 			Token:    token,
@@ -126,34 +265,16 @@ var setWebhookSecretCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		resp, err := helpers.NewReq().Get("bots/" + auth.TargetID + "/webhook-state").Do()
-
-		if err != nil {
-			fmt.Println("Error getting webhook state:", err)
-			os.Exit(1)
-		}
-
-		var webhookState types.WebhookState
-		err = resp.JsonOk(&webhookState)
-
-		if err != nil {
-			fmt.Println("Error getting webhook state:", err)
-			os.Exit(1)
-		}
-
 		var secret string
 
-		if webhookState.SecretSet {
-			secret = helpers.GetPassword("Please enter the webhook secret you set on your bot's settings page.\n\nIf you don't know it, regenerate it or unset it (leave it blank and save), rerun setup and we'll provide instructions\n\nSecret")
-		} else {
-			suggestedSecret := crypto.RandString(48)
-			fmt.Println("Seems like you haven't set a webhook secret yet.")
+		suggestedSecret := crypto.RandString(48)
 
-			fmt.Println(helpers.BotSettingsHelp())
+		fmt.Println(helpers.BotSettingsHelp())
 
-			fmt.Println("Here's a possible good/strong secret:", suggestedSecret, "\nyou can use this for 'Webhook Secret' or generate your own")
+		fmt.Println("Here's a possible good/strong secret:", suggestedSecret, "\nyou can use this for 'Webhook Secret' or generate your own")
 
-			os.Exit(1)
+		for len(secret) > 0 {
+			secret = helpers.GetPassword("Please enter the webhook secret you set on your bot's settings page")
 		}
 
 		// Write the config

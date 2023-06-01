@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/sha512"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 
@@ -55,7 +57,9 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		binFileName := "ibl"
+		var iblFile = "ibl"
+
+		binFileName := iblFile
 
 		if runtime.GOOS == "windows" {
 			binFileName = "ibl.exe"
@@ -70,6 +74,40 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Error downloading file:", err)
 			return
+		}
+
+		if os.Getenv("NO_SHASUM") != "true" {
+			shasum := helpers.GetAssetsURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
+
+			fmt.Println("Downloading shasum from:", shasum)
+
+			shasumBytes, err := helpers.DownloadFileWithProgress(shasum)
+
+			if err != nil {
+				fmt.Println("Error downloading shasum:", err)
+				return
+			}
+
+			shasumStr := strings.ReplaceAll(string(shasumBytes), "\n", "")
+
+			fmt.Println("")
+
+			fmt.Println("Verifying shasum...")
+
+			// Create sha512 of the downloaded file
+			h := fmt.Sprintf("%x", sha512.Sum512(execBytes)) + "  bin/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile
+
+			fmt.Println("Expected:", shasumStr)
+			fmt.Println("Got:", h)
+			fmt.Println("FSize:", "shaSum =", len(shasumStr), "h =", len(h))
+			fmt.Println("Match:", h == shasumStr)
+
+			if h != shasumStr {
+				fmt.Println("Shasum verification failed!")
+				return
+			}
+
+			fmt.Println("Shasum verification successful!")
 		}
 
 		err = selfupdate.Apply(bytes.NewReader(execBytes), selfupdate.Options{})
