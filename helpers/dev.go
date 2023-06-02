@@ -12,7 +12,7 @@ func DevMode() types.DevMode {
 	// Look for devmode config
 	var DevMode types.DevMode
 	var mode types.DevModeCfg
-	err := LoadAndMarshalConfig("dev", &mode)
+	err := LoadConfig("dev", &mode)
 
 	if err != nil {
 		DevMode = types.DevModeOff
@@ -26,6 +26,8 @@ func DevMode() types.DevMode {
 			DevMode = types.DevModeFull
 		}
 	}
+
+	dmCache = &DevMode
 
 	return DevMode
 }

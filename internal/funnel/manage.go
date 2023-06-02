@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,10 @@ var funnelActions = map[string]funnelAction{
 	"N": {
 		Name:   "New funnel",
 		Action: newFunnel,
+	},
+	"E": {
+		Name:   "Open funnel editor",
+		Action: editor,
 	},
 	"Q": {
 		Name: "Save And Quit",
@@ -62,7 +67,7 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 		fmt.Println("Funnels:")
 
 		for i, funnel := range funnels.Funnels {
-			fmt.Print(helpers.BoldBlueText("Funnel", i+1))
+			fmt.Print(helpers.BoldText("Funnel", i+1))
 			fmt.Println("Target Type:", funnel.TargetType)
 			fmt.Println("Target ID:", funnel.TargetID)
 			fmt.Println("Endpoint ID:", funnel.EndpointID)
@@ -261,6 +266,39 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 
 	case types.TargetTypeServer:
 		return errors.New("server listing is not yet implemented on ibl itself")
+	}
+
+	return nil
+}
+
+func editor(_ types.TestAuth, funnels *types.FunnelList) error {
+	err := helpers.WriteConfig("funnels", funnels)
+
+	if err != nil {
+		fmt.Print(helpers.RedText("Config save error: " + err.Error()))
+		time.Sleep(3 * time.Second)
+	}
+
+	cfgFile := helpers.ConfigFile()
+
+	// Get editor to use using EDITOR env var defaulting to nano if unset
+	editor := os.Getenv("EDITOR")
+
+	if editor == "" {
+		editor = "nano"
+	}
+
+	// Open editor
+	cmd := exec.Command(editor, cfgFile+"/funnels")
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
+
+	if err != nil {
+		return errors.New("error opening editor: " + err.Error())
 	}
 
 	return nil

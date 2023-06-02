@@ -7,7 +7,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -247,80 +246,4 @@ func ConfigFile() string {
 	}
 
 	return s + "/infinity"
-}
-
-func WriteConfig(name string, data any) error {
-	cfgFile := ConfigFile()
-
-	return Write(cfgFile+"/"+name, data)
-}
-
-func Write(fn string, data any) error {
-	// Create config file
-	f, err := os.Create(fn)
-
-	if err != nil {
-		return err
-	}
-
-	bytes, err := json.Marshal(data)
-
-	if err != nil {
-		return err
-	}
-
-	w, err := f.Write(bytes)
-
-	if err != nil {
-		return err
-	}
-
-	if os.Getenv("DEBUG") == "true" {
-		fmt.Println("Write: wrote", w, "bytes to", fn)
-	}
-
-	return nil
-}
-
-func LoadConfig(name string) (string, bool) {
-	cfgFile := ConfigFile()
-
-	if fsi, err := os.Stat(cfgFile + "/" + name); err != nil || fsi.IsDir() {
-		return "", false
-	} else {
-		f, err := os.Open(cfgFile + "/" + name)
-
-		if err != nil {
-			return "", false
-		}
-
-		defer f.Close()
-
-		buf := bytes.Buffer{}
-
-		_, err = io.Copy(&buf, f)
-
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading config file:", err)
-			return "", false
-		}
-
-		return buf.String(), true
-	}
-}
-
-func LoadAndMarshalConfig(name string, dst any) error {
-	cfg, ok := LoadConfig(name)
-
-	if !ok {
-		return fmt.Errorf("config file %s does not exist", name)
-	}
-
-	err := json.Unmarshal([]byte(cfg), &dst)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

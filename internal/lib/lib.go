@@ -256,7 +256,7 @@ func AccountSwitcher() types.TestAuth {
 	var flag bool = true
 	for flag {
 		var a *types.TestAuth
-		err := helpers.LoadAndMarshalConfig("auth@user", &a)
+		err := helpers.LoadConfig("auth@user", &a)
 
 		if err != nil {
 			fmt.Print(helpers.RedText("You are not logged in on IBL CLI yet! A login is required for proper configuration and setup..."))

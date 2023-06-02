@@ -21,5 +21,5 @@ func (d DevMode) Allows(m DevMode) bool {
 }
 
 type DevModeCfg struct {
-	Mode DevMode `json:"mode"`
+	Mode DevMode `yaml:"mode"`
 }

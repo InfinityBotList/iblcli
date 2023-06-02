@@ -27,11 +27,11 @@ var setupCmd = &cobra.Command{
 		}
 
 		var funnels *types.FunnelList
-		err := helpers.LoadAndMarshalConfig("funnels", &funnels)
+		err := helpers.LoadConfig("funnels", &funnels)
 
 		if err != nil {
-			fmt.Println("Error getting funnels:", err)
-			return
+			fmt.Print(helpers.RedText("No valid funnel config found, resetting"))
+			funnels = &types.FunnelList{}
 		}
 
 		funnel.ManageConsole(auth, *funnels)
