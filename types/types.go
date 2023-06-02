@@ -1,5 +1,7 @@
 package types
 
+import "github.com/infinitybotlist/eureka/dovewing"
+
 type TestAuth struct {
 	AuthType TargetType `json:"auth_type"`
 	TargetID string     `json:"target_id"`
@@ -24,6 +26,7 @@ type WebhookFunnel struct {
 
 type FunnelList struct {
 	Port    int             `json:"port"`
+	Domain  string          `json:"domain"`
 	Funnels []WebhookFunnel `json:"funnels"`
 }
 
@@ -54,26 +57,40 @@ type UserLogin struct {
 	UserID string `json:"user_id" description:"The users ID"`
 }
 
-type DevMode string
-
-const (
-	DevModeFull  DevMode = "full"
-	DevModeLocal DevMode = "local"
-	DevModeOff   DevMode = "off"
-)
-
-func (d DevMode) Allows(m DevMode) bool {
-	if d == DevModeFull {
-		return m == DevModeFull || m == DevModeLocal || m == DevModeOff
-	}
-
-	if d == DevModeLocal {
-		return m == DevModeLocal || m == DevModeOff
-	}
-
-	return m == DevModeOff
+// funnel entities
+type FunnelBot struct {
+	User       *dovewing.DiscordUser `json:"user"`
+	BotID      string                `json:"bot_id"`
+	WebhooksV2 bool                  `json:"webhooks_v2"`
+	Owner      *dovewing.DiscordUser `json:"owner"`
+	TeamOwner  *struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		Members []struct {
+			User  *dovewing.DiscordUser `json:"user"`
+			Perms []TeamPermission      `json:"perms"`
+		} `json:"members"`
+	} `json:"team_owner"`
 }
 
-type DevModeCfg struct {
-	Mode DevMode `json:"mode"`
+type FunnelServer struct {
+	ServerID   string `json:"bot_id"`
+	WebhooksV2 bool   `json:"webhooks_v2"`
+	TeamOwner  *struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		Members []struct {
+			User  *dovewing.DiscordUser `json:"user"`
+			Perms []TeamPermission      `json:"perms"`
+		} `json:"members"`
+	} `json:"team_owner"`
+}
+
+// webhooks.go
+
+type PatchBotWebhook struct {
+	WebhookURL    string `json:"webhook_url"`
+	WebhookSecret string `json:"webhook_secret"`
+	WebhooksV2    *bool  `json:"webhooks_v2"`
+	Clear         bool   `json:"clear"`
 }
