@@ -13,7 +13,7 @@ import (
 	"github.com/infinitybotlist/eureka/crypto"
 )
 
-type FunnelCommand = func(*types.FunnelList) error
+type FunnelCommand = func(types.TestAuth, *types.FunnelList) error
 
 type funnelAction struct {
 	Name   string
@@ -35,7 +35,7 @@ var funnelActions = map[string]funnelAction{
 	},
 	"Q": {
 		Name: "Save And Quit",
-		Action: func(funnels *types.FunnelList) error {
+		Action: func(_ types.TestAuth, funnels *types.FunnelList) error {
 			err := helpers.WriteConfig("funnels", funnels)
 
 			if err != nil {
@@ -52,6 +52,24 @@ var funnelActions = map[string]funnelAction{
 
 func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 	for {
+		fmt.Println("")
+		fmt.Println("")
+
+		// Print current settings
+		fmt.Println("Current settings:")
+		fmt.Println("Port:", funnels.Port)
+		fmt.Println("Domain:", funnels.Domain)
+		fmt.Println("Funnels:")
+
+		for i, funnel := range funnels.Funnels {
+			fmt.Print(helpers.BoldBlueText("Funnel", i+1))
+			fmt.Println("Target Type:", funnel.TargetType)
+			fmt.Println("Target ID:", funnel.TargetID)
+			fmt.Println("Endpoint ID:", funnel.EndpointID)
+			fmt.Println("Forward:", funnel.Forward)
+			fmt.Println("")
+		}
+
 		fmt.Println("")
 		fmt.Println("")
 
@@ -79,16 +97,16 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 			continue
 		}
 
-		err := action.Action(&funnels)
+		err := action.Action(user, &funnels)
 
 		if err != nil {
-			fmt.Print(helpers.RedText("Invalid option"))
+			fmt.Print(helpers.RedText("Error:", err))
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
 
-func portMan(funnels *types.FunnelList) error {
+func portMan(_ types.TestAuth, funnels *types.FunnelList) error {
 	port := helpers.GetInput("What port should the webserver run on?", func(s string) bool {
 		// Check if port is a number
 		_, err := strconv.Atoi(s)
@@ -112,7 +130,7 @@ func portMan(funnels *types.FunnelList) error {
 	return nil
 }
 
-func setDomain(funnels *types.FunnelList) error {
+func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
 	domain := helpers.GetInput("What domain/IP will the webhook be accessible from?", func(s string) bool {
 		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 			return true
@@ -127,7 +145,7 @@ func setDomain(funnels *types.FunnelList) error {
 	return nil
 }
 
-func newFunnel(funnels *types.FunnelList) error {
+func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 	if funnels.Port == 0 || funnels.Domain == "" {
 		fmt.Print(helpers.RedText("Please set a port and webhook domain ('P' and 'D') before adding a funnel"))
 		return nil
@@ -197,13 +215,13 @@ func newFunnel(funnels *types.FunnelList) error {
 			return errors.New("error occurred while parsing bot data: " + err.Error())
 		}
 
-		fmt.Print("Adding", helpers.BoldText(e.User.Username), "("+e.BotID+")", "to funnels")
+		fmt.Print("Adding ", helpers.BoldText(e.User.Username+" ["+e.BotID+"]"))
 		fmt.Print(helpers.BlueText("Updating webhook configuration for this bot..."))
 
 		endpointId := crypto.RandString(32)
 		webhookSecret := crypto.RandString(128)
 
-		fmt.Print(helpers.BlueText("Domain: " + funnels.Domain + "/?id=" + endpointId))
+		fmt.Print(helpers.BlueText("Domain: " + funnels.Domain + "/funnel?id=" + endpointId))
 
 		tBool := true
 
@@ -213,13 +231,14 @@ func newFunnel(funnels *types.FunnelList) error {
 			WebhooksV2:    &tBool,
 		}
 
-		resp, err = helpers.NewReq().Patch("bots/" + e.BotID + "/webhook").Json(pw).Do()
+		// /users/{uid}/bots/{bid}/webhook
+		resp, err = helpers.NewReq().Patch("users/" + u.TargetID + "/bots/" + e.BotID + "/webhook").Auth(u.Token).Json(pw).Do()
 
 		if err != nil {
 			return errors.New("error occurred while updating webhook: " + err.Error())
 		}
 
-		if resp.Response.StatusCode != 200 {
+		if resp.Response.StatusCode != 204 {
 			body, err := resp.Body()
 
 			if err != nil {
@@ -237,6 +256,8 @@ func newFunnel(funnels *types.FunnelList) error {
 			EndpointID:    endpointId,
 			Forward:       forwardTo,
 		})
+
+		return nil
 
 	case types.TargetTypeServer:
 		return errors.New("server listing is not yet implemented on ibl itself")
