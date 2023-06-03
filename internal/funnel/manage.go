@@ -302,5 +302,12 @@ func editor(_ types.TestAuth, funnels *types.FunnelList) error {
 		return errors.New("error opening editor: " + err.Error())
 	}
 
+	// Reload config
+	err = helpers.LoadConfig("funnels", funnels)
+
+	if err != nil {
+		return errors.New("error reloading config: " + err.Error())
+	}
+
 	return nil
 }
