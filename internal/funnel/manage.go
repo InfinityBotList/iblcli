@@ -11,6 +11,7 @@ import (
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/InfinityBotList/ibl/types"
+	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
 )
 
@@ -212,7 +213,7 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 			return errors.New("api error (status code " + strconv.Itoa(resp.Response.StatusCode) + "): " + string(body))
 		}
 
-		var e types.FunnelBot
+		var e popltypes.Bot
 
 		err = resp.Json(&e)
 
@@ -230,7 +231,7 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 
 		tBool := true
 
-		pw := types.PatchBotWebhook{
+		pw := popltypes.PatchBotWebhook{
 			WebhookURL:    funnels.Domain + "/?id=" + endpointId,
 			WebhookSecret: webhookSecret,
 			WebhooksV2:    &tBool,

@@ -23,11 +23,10 @@ var loginCmd = &cobra.Command{
 }
 
 var devModeToggle = &cobra.Command{
-	Use:    "toggledev",
-	Short:  "Toggle dev mode",
-	Long:   "off = disable dev mode\nlocal = locally performable actions\nfull = all commands",
-	Hidden: true,
-	Args:   cobra.ExactArgs(1),
+	Use:   "toggledev",
+	Short: "Toggle dev mode",
+	Long:  "off = disable dev mode\nlocal = locally performable actions\nfull = all commands",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get dev mode flag
 		devMode := args[0]

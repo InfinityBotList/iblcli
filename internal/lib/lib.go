@@ -12,6 +12,7 @@ import (
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/InfinityBotList/ibl/types"
+	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
 )
 
@@ -44,7 +45,7 @@ func webAuthUser() (string, string, error) {
 		return "", "", errors.New("error occurred while getting OAuth2 URL: " + err.Error())
 	}
 
-	var oauth2Data types.OauthMeta
+	var oauth2Data popltypes.OauthMeta
 
 	err = resp.Json(&oauth2Data)
 
@@ -90,7 +91,7 @@ func webAuthUser() (string, string, error) {
 	}
 
 	// Exchange code for token
-	resp, err = helpers.NewReq().Put("users").Json(types.AuthorizeRequest{
+	resp, err = helpers.NewReq().Put("users").Json(popltypes.AuthorizeRequest{
 		ClientID:    oauth2Data.ClientID,
 		Code:        login.code,
 		Scope:       "external_auth",
@@ -116,7 +117,7 @@ func webAuthUser() (string, string, error) {
 		return "", "", errors.New("login failed, got response code " + fmt.Sprint(resp.Response.StatusCode))
 	}
 
-	var loginData types.UserLogin
+	var loginData popltypes.UserLogin
 
 	err = resp.Json(&loginData)
 

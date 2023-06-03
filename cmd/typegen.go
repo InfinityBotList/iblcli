@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/InfinityBotList/ibl/helpers"
 	"github.com/InfinityBotList/ibl/types"
@@ -15,11 +16,12 @@ import (
 
 type NginxFile struct {
 	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type FileList []NginxFile
 
-func addTypings(remoteDir, localDir string) error {
+func addTypings(path, remoteDir, localDir string, filter func(string) bool) error {
 	fmt.Println("=>", localDir, "( "+remoteDir+" )")
 
 	res, err := helpers.NewReq().Get("json/" + remoteDir).Do()
@@ -38,10 +40,12 @@ func addTypings(remoteDir, localDir string) error {
 		return err
 	}
 
-	var path = "src/utils/generated"
-
-	if os.Getenv("IBL_PATH") != "" {
-		path = os.Getenv("IBL_PATH")
+	// Go through every file and filter
+	for i := 0; i < len(list); i++ {
+		if !filter(list[i].Name) || list[i].Type != "file" {
+			list = append(list[:i], list[i+1:]...)
+			i--
+		}
 	}
 
 	os.MkdirAll(path+"/"+localDir, 0755)
@@ -117,7 +121,9 @@ var typegenCmd = &cobra.Command{
 		}
 
 		for _, binding := range blist {
-			err := addTypings("dev/bindings/"+binding.Name, binding.Name)
+			err := addTypings(path, "dev/bindings/"+binding.Name, binding.Name, func(name string) bool {
+				return strings.HasSuffix(name, ".ts")
+			})
 
 			if err != nil {
 				fmt.Println("Error with "+binding.Name, err)
@@ -129,8 +135,41 @@ var typegenCmd = &cobra.Command{
 	},
 }
 
+// goTypegenCmd represents the gotypegen command
+var goTypeGen = &cobra.Command{
+	Use:   "gotypegen",
+	Short: "Download all popplio go typings",
+	Long:  `Download all popplio go typings`,
+	Run: func(cmd *cobra.Command, args []string) {
+		var path = "types/popltypes"
+
+		if os.Getenv("IBL_PATH") != "" {
+			path = os.Getenv("IBL_PATH")
+		}
+
+		// Remove any existing src/utils/generated folder if it exists
+		os.RemoveAll(path)
+
+		os.MkdirAll(path, 0755)
+
+		helpers.ClientURL = "https://cdn.infinitybots.gg"
+
+		err := addTypings(path, "dev/bindings/popplio/go/types", "", func(name string) bool {
+			return strings.HasSuffix(name, ".go")
+		})
+
+		if err != nil {
+			fmt.Println("Error downloading types", err)
+			return
+		}
+
+		helpers.ClientURL = helpers.APIUrl
+	},
+}
+
 func init() {
 	if helpers.DevMode().Allows(types.DevModeLocal) {
 		rootCmd.AddCommand(typegenCmd)
+		rootCmd.AddCommand(goTypeGen)
 	}
 }
