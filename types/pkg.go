@@ -2,7 +2,7 @@ package types
 
 // BuildPackage represents the format of a ibl pkg
 type BuildPackage struct {
-	Lang map[string]BuildPackageInner `yaml:"rust,inline" validate:"required,oneof=rust"`
+	Lang map[string]BuildPackageInner `yaml:",inline" validate:"required"`
 }
 
 type BuildPackageInner struct {
