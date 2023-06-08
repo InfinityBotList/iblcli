@@ -19,7 +19,7 @@ var buildPkgCommand = &cobra.Command{
 	Long:  `Builds an IBL service`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Open pkg.yaml
-		fmt.Println(ui.BoldText("[INIT] Opening pkg.yaml"))
+		fmt.Print(ui.BoldText("[INIT] Opening pkg.yaml"))
 
 		bytes, err := os.ReadFile("pkg.yaml")
 
@@ -43,7 +43,42 @@ var buildPkgCommand = &cobra.Command{
 			panic(err)
 		}
 
-		buildpkg.Build(pkg)
+		buildpkg.Build(pkg, "build")
+	},
+}
+
+// buildPkgCommand allows for the building of packages
+var deployPkgCommand = &cobra.Command{
+	Use:   "deploy",
+	Short: "Deploys an update to an IBL service",
+	Long:  `Deploys an update to an IBL service`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Open pkg.yaml
+		fmt.Print(ui.BoldText("[INIT] Opening pkg.yaml"))
+
+		bytes, err := os.ReadFile("pkg.yaml")
+
+		if err != nil {
+			panic(err)
+		}
+
+		// Parse pkg.yaml
+		var pkg types.BuildPackage
+
+		err = yaml.Unmarshal(bytes, &pkg)
+
+		if err != nil {
+			panic(err)
+		}
+
+		// Check if the pkg is valid
+		err = rootValidator.Struct(pkg)
+
+		if err != nil {
+			panic(err)
+		}
+
+		buildpkg.Build(pkg, "deploy")
 	},
 }
 
@@ -51,12 +86,13 @@ var buildPkgCommand = &cobra.Command{
 var pkgCmd = &cobra.Command{
 	Use:   "pkg",
 	Short: "Package (building etc) operations",
-	Long:  `Page operations`,
+	Long:  `Package (building etc) operations`,
 }
 
 func init() {
 	if devmode.DevMode().Allows(types.DevModeLocal) {
 		pkgCmd.AddCommand(buildPkgCommand)
+		pkgCmd.AddCommand(deployPkgCommand)
 		rootCmd.AddCommand(pkgCmd)
 	}
 }
