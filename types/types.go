@@ -14,20 +14,6 @@ const (
 	TargetTypeServer TargetType = "server"
 )
 
-type WebhookFunnel struct {
-	TargetType    TargetType `yaml:"target_type"`
-	TargetID      string     `yaml:"target_id"`
-	WebhookSecret string     `yaml:"webhook_secret"`
-	EndpointID    string     `yaml:"endpoint_id"`
-	Forward       string     `yaml:"forward"`
-}
-
-type FunnelList struct {
-	Port    int             `yaml:"port"`
-	Domain  string          `yaml:"domain"`
-	Funnels []WebhookFunnel `yaml:"funnels"`
-}
-
 // Auth data
 type AuthData struct {
 	TargetType TargetType `json:"target_type" yaml:"target_type"`
