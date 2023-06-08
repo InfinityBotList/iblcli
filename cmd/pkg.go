@@ -14,11 +14,9 @@ import (
 
 // buildPkgCommand allows for the building of packages
 var buildPkgCommand = &cobra.Command{
-	Use:     "build",
-	Short:   "Build an IBL service",
-	Long:    `Builds an IBL service`,
-	Args:    cobra.ExactArgs(2),
-	Aliases: []string{"addexperiment", "ae"},
+	Use:   "build",
+	Short: "Build an IBL service",
+	Long:  `Builds an IBL service`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Open pkg.yaml
 		fmt.Println(ui.BoldText("[INIT] Opening pkg.yaml"))

@@ -58,7 +58,32 @@ var RustBuildActions = []action{
 					fmt.Println(ui.RedText(" NOT FOUND:  " + err.Error() + "]"))
 				}
 
-				fmt.Println(ui.GreenText(" OK (" + cmdExec.Path + ")"))
+				fmt.Print(ui.GreenText(" OK (" + cmdExec.Path + ")"))
+			}
+		},
+	},
+	{
+		Name: "Set correct database url",
+		Func: func(cfg types.BuildPackage) {
+			if os.Getenv("DATABASE_URL") == "" {
+				fmt.Println(ui.YellowText("DATABASE_URL not set, setting to default: postgres://localhost/infinity"))
+				os.Setenv("DATABASE_URL", "postgres://localhost/infinity")
+			}
+
+			// Create .env file if it doesn't exist
+			f, err := os.Create(".env")
+
+			if err != nil {
+				panic(err)
+			}
+
+			defer f.Close()
+
+			// Write DATABASE_URL to .env
+			_, err = f.WriteString("DATABASE_URL=" + os.Getenv("DATABASE_URL"))
+
+			if err != nil {
+				panic(err)
 			}
 		},
 	},
@@ -127,7 +152,7 @@ var RustBuildActions = []action{
 func Build(cfg types.BuildPackage) {
 	var actions []action
 	if cfg.Rust != nil {
-		fmt.Println(ui.BoldText(ui.BoldText("[INIT] Using rust build system")))
+		fmt.Println(ui.BoldText("[INIT] Using rust build system"))
 		actions = RustBuildActions
 	}
 
