@@ -11,7 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/downloader"
+	"github.com/InfinityBotList/ibl/internal/links"
 	"github.com/fynelabs/selfupdate"
 	"github.com/spf13/cobra"
 )
@@ -19,16 +20,16 @@ import (
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use:     "update",
-	Short:   "Updates IBL CLI",
-	Long:    `Updates IBL CLI to the latest version.`,
+	Short:   "IBLCLI update command",
+	Long:    `IBLCLI updater.`,
 	Aliases: []string{"u", "upd"},
 	Run: func(cmd *cobra.Command, args []string) {
 		force := cmd.Flag("force").Value.String()
 
 		// Check if an update is even required
-		updCheckUrl := helpers.GetAssetsURL() + "/dev/" + ProjectName + "/current_rev"
+		updCheckUrl := links.GetCdnURL() + "/dev/" + ProjectName + "/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
-		currRev, err := helpers.DownloadFileWithProgress(updCheckUrl)
+		currRev, err := downloader.DownloadFileWithProgress(updCheckUrl)
 
 		if err != nil {
 			fmt.Println("Error checking for updates:", err)
@@ -45,7 +46,7 @@ var updateCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Println("Updating to version", string(currRev))
+		fmt.Println("Updating to version", string(currRev), ", current version:", BuildRev)
 		fmt.Print("Continue? [y/N]: ")
 
 		var input string
@@ -65,11 +66,11 @@ var updateCmd = &cobra.Command{
 			binFileName = "ibl.exe"
 		}
 
-		url := helpers.GetAssetsURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
+		url := links.GetCdnURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
 		fmt.Println("Downloading latest version from:", url)
 
-		execBytes, err := helpers.DownloadFileWithProgress(url)
+		execBytes, err := downloader.DownloadFileWithProgress(url)
 
 		if err != nil {
 			fmt.Println("Error downloading file:", err)
@@ -77,11 +78,11 @@ var updateCmd = &cobra.Command{
 		}
 
 		if os.Getenv("NO_SHASUM") != "true" {
-			shasum := helpers.GetAssetsURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
+			shasum := links.GetCdnURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
 
 			fmt.Println("Downloading shasum from:", shasum)
 
-			shasumBytes, err := helpers.DownloadFileWithProgress(shasum)
+			shasumBytes, err := downloader.DownloadFileWithProgress(shasum)
 
 			if err != nil {
 				fmt.Println("Error downloading shasum:", err)

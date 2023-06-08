@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +83,7 @@ var proxyCmd = &cobra.Command{
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeFull) {
+	if devmode.DevMode().Allows(types.DevModeFull) {
 		rootCmd.AddCommand(proxyCmd)
 
 		proxyCmd.Flags().StringP("outbound-ip", "o", "", "The outbound IP to use")

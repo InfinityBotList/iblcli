@@ -2,8 +2,8 @@
 # because we want to be able to build the same commit multiple times and
 # have the build revision be different each time.
 
-BUILDREV := $(shell uuidgen)
-BUILDTIME := $(shell date '+%Y-%m-%d %H:%M:%S')
+BUILDTIME := $(shell date '+%Y-%m-%d | %H:%M:%S')
+BUILDREV := ${BUILDTIME}
 REPONAME := github.com/InfinityBotList/ibl
 PROJECTNAME := iblcli
 GOFLAGS := -trimpath -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)' -X '$(REPONAME)/cmd.ProjectName=$(PROJECTNAME)'"
@@ -32,5 +32,5 @@ publish:
 	rm -rf /iblcdn/public/dev/iblcli /iblcdn/public/dev/shadowsight
 	mkdir -p /iblcdn/public/dev/iblcli
 	mv -vf bin/* /iblcdn/public/dev/iblcli
-	echo -n $(BUILDREV) > /iblcdn/public/dev/iblcli/current_rev
+	echo -n "$(BUILDREV)" > /iblcdn/public/dev/iblcli/current_rev
 	rm -rf bin

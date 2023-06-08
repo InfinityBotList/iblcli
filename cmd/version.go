@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ var versionCmd = &cobra.Command{
 		fmt.Println("buildTime:", BuildTime)
 		fmt.Println("seedApiVersion:", seedApiVer)
 		fmt.Println("goInfo:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-		fmt.Println("devMode:", helpers.DevMode())
+		fmt.Println("devMode:", devmode.DevMode())
 
 		fmt.Println("\nCopyright © 2022 Infinity Bot List")
 		fmt.Println("Licensed under the MIT license. See LICENSE file in the project root for full license information.")

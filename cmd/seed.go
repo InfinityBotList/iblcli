@@ -15,12 +15,18 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/agents/dbdumper"
+	"github.com/InfinityBotList/ibl/internal/devmode"
+	"github.com/InfinityBotList/ibl/internal/downloader"
+	"github.com/InfinityBotList/ibl/internal/links"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/infinitybotlist/eureka/crypto"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/spf13/cobra"
 )
+
+const seedApiVer = "frostpaw" // e means encryption protocol version
 
 type Meta struct {
 	CreatedAt time.Time `json:"c"`
@@ -33,7 +39,50 @@ type SourceParsed struct {
 	Table string
 }
 
-const seedApiVer = "area-zero-pokemon" // e means encryption protocol version
+// Creates a env based on os.Environ()
+func createEnv() []string {
+	var env []string = make([]string, 0)
+	if os.Getenv("PGDATABASE") != "" {
+		env = append(env, "PGDATABASE="+os.Getenv("PGDATABASE"))
+	} else {
+		env = append(env, "PGDATABASE=infinity")
+	}
+
+	if os.Getenv("PGUSER") != "" {
+		env = append(env, "PGUSER="+os.Getenv("PGUSER"))
+	}
+
+	return env
+}
+
+// Adds a buffer to a tar archive
+func tarAddBuf(tarWriter *tar.Writer, buf *bytes.Buffer, name string) error {
+	err := tarWriter.WriteHeader(&tar.Header{
+		Name: name,
+		Mode: 0600,
+		Size: int64(buf.Len()),
+	})
+
+	if err != nil {
+		return err
+	}
+
+	_, err = tarWriter.Write(buf.Bytes())
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func mapKeys[T any](m map[string]T) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
 
 // seedCmd represents the seed command
 var seedCmd = &cobra.Command{
@@ -71,7 +120,7 @@ var newCmd = &cobra.Command{
 
 		backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", "infinity", "-f", "work/schema.sql")
 
-		backupCmd.Env = helpers.GetEnv()
+		backupCmd.Env = createEnv()
 
 		err = backupCmd.Run()
 
@@ -110,7 +159,7 @@ var newCmd = &cobra.Command{
 		tarWriter := tar.NewWriter(tarFile)
 
 		// Write metadata buf to tar file
-		err = helpers.TarAddBuf(tarWriter, mdBuf, "meta")
+		err = tarAddBuf(tarWriter, mdBuf, "meta")
 
 		if err != nil {
 			fmt.Println("Failed to write metadata to tar file:", err)
@@ -136,7 +185,7 @@ var newCmd = &cobra.Command{
 		}
 
 		// Write metadata buf to tar file
-		err = helpers.TarAddBuf(tarWriter, schemaBuf, "schema")
+		err = tarAddBuf(tarWriter, schemaBuf, "schema")
 
 		if err != nil {
 			fmt.Println("Failed to write schema to tar file:", err)
@@ -168,14 +217,14 @@ var newCmd = &cobra.Command{
 		w.Close()
 
 		// Generate schema for CI
-		pool, err := helpers.GetPool()
+		pool, err := pgxpool.Connect(context.Background(), "postgres:///infinity")
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get pool:", err)
 			return
 		}
 
-		schema, err := helpers.GetSchema(context.Background(), pool)
+		schema, err := dbdumper.GetSchema(context.Background(), pool)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get schema for CI etc.:", err)
@@ -256,11 +305,11 @@ var applyCmd = &cobra.Command{
 		// Check args as to which file to use
 		seedFile := args[0]
 
-		assetsUrl := helpers.GetAssetsURL() + "/dev"
+		assetsUrl := links.GetCdnURL() + "/dev"
 
 		if seedFile == "latest" {
 			// Download seedfile with progress bar
-			data, err := helpers.DownloadFileWithProgress(assetsUrl + "/seed.iblseed?n=" + crypto.RandString(12))
+			data, err := downloader.DownloadFileWithProgress(assetsUrl + "/seed.iblseed?n=" + crypto.RandString(12))
 
 			if err != nil {
 				fmt.Println("Failed to download seed file:", err)
@@ -350,7 +399,7 @@ var applyCmd = &cobra.Command{
 			files[header.Name] = buf
 		}
 
-		fmt.Println("Got map keys:", helpers.MapKeys(files))
+		fmt.Println("Got map keys:", mapKeys(files))
 
 		// Extract out meta
 		mdBuf, ok := files["meta"]
@@ -406,7 +455,7 @@ var applyCmd = &cobra.Command{
 		// Ensure PGDATABASE is NOT set
 		os.Unsetenv("PGDATABASE")
 
-		pool, err := helpers.GetPoolNoUrl()
+		pool, err := pgxpool.Connect(context.Background(), "")
 
 		if err != nil {
 			fmt.Println("Failed to acquire database pool:", err)
@@ -427,7 +476,7 @@ var applyCmd = &cobra.Command{
 
 		if exists {
 			// Check seed_info table for nonce
-			iblPool, err := helpers.GetPool()
+			iblPool, err := pgxpool.Connect(context.Background(), "postgres:///infinity")
 
 			if err != nil {
 				fmt.Println("Failed to acquire iblPool:", err, "Ignoring...")
@@ -485,7 +534,7 @@ var applyCmd = &cobra.Command{
 
 		os.Setenv("PGDATABASE", "infinity")
 
-		pool, err = helpers.GetPool()
+		pool, err = pgxpool.Connect(context.Background(), "postgres:///infinity")
 
 		if err != nil {
 			fmt.Println("Failed to acquire database pool for newly created database:", err)
@@ -514,7 +563,7 @@ var applyCmd = &cobra.Command{
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeFull) {
+	if devmode.DevMode().Allows(types.DevModeFull) {
 		seedCmd.AddCommand(newCmd)
 	}
 
@@ -522,9 +571,4 @@ func init() {
 	seedCmd.AddCommand(applyCmd)
 
 	rootCmd.AddCommand(seedCmd)
-
-	newCmd.Flags().BoolP("encrypt", "e", false, "Encrypt seed file with custom password")
-	newCmd.Flags().StringP("password", "p", "", "Password to encrypt seed file with. Otherwise interactive prompt will be used")
-
-	applyCmd.Flags().StringP("password", "p", "", "Password to decrypt seed file with. Otherwise interactive prompt will be used if required")
 }

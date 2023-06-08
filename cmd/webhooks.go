@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/InfinityBotList/ibl/helpers"
-	"github.com/InfinityBotList/ibl/internal/funnel"
-	"github.com/InfinityBotList/ibl/internal/lib"
+	"github.com/InfinityBotList/ibl/internal/agents/funneleditor"
+	"github.com/InfinityBotList/ibl/internal/config"
+	"github.com/InfinityBotList/ibl/internal/ui"
+	"github.com/InfinityBotList/ibl/internal/views"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -20,21 +21,21 @@ var setupCmd = &cobra.Command{
 	Short: "Sets up the a bot for webhooks.",
 	Long:  "Sets up a bot for webhooks.",
 	Run: func(cmd *cobra.Command, args []string) {
-		auth := lib.AccountSwitcher()
+		auth := views.AccountSwitcher()
 
 		if os.Getenv("DEBUG") == "true" {
 			fmt.Println("AuthSwitcher:", auth) // temporary to avoid a compile error
 		}
 
 		var funnels *types.FunnelList
-		err := helpers.LoadConfig("funnels", &funnels)
+		err := config.LoadConfig("funnels", &funnels)
 
 		if err != nil {
-			fmt.Print(helpers.RedText("No valid funnel config found, resetting"))
+			fmt.Print(ui.RedText("No valid funnel config found, resetting"))
 			funnels = &types.FunnelList{}
 		}
 
-		funnel.ManageConsole(auth, *funnels)
+		funneleditor.ManageConsole(auth, *funnels)
 	},
 }
 

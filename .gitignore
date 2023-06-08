@@ -2,3 +2,6 @@ ibl
 ibl.sha512
 bin
 *.iblseed
+*.key
+*.pem
+ed25519*

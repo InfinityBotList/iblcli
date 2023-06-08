@@ -1,9 +1,14 @@
-package helpers
+// Package devmode defines the core runtime of iblcli
+package devmode
 
-import "github.com/InfinityBotList/ibl/types"
+import (
+	"github.com/InfinityBotList/ibl/internal/config"
+	"github.com/InfinityBotList/ibl/types"
+)
 
 var dmCache *types.DevMode
 
+// Returns the dev mode status of the CLI
 func DevMode() types.DevMode {
 	if dmCache != nil {
 		return *dmCache
@@ -12,7 +17,7 @@ func DevMode() types.DevMode {
 	// Look for devmode config
 	var DevMode types.DevMode
 	var mode types.DevModeCfg
-	err := LoadConfig("dev", &mode)
+	err := config.LoadConfig("dev", &mode)
 
 	if err != nil {
 		DevMode = types.DevModeOff

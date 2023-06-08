@@ -6,7 +6,7 @@ package cmd
 import (
 	"os/exec"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +47,7 @@ var logCmd = &cobra.Command{
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeFull) {
+	if devmode.DevMode().Allows(types.DevModeFull) {
 		rootCmd.AddCommand(logCmd)
 		logCmd.Flags().StringP("lines", "l", "300", "Number of lines to show")
 		logCmd.Flags().BoolP("begin", "b", false, "Start at beginning of log")

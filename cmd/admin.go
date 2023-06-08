@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
@@ -18,7 +19,7 @@ var addExpCommand = &cobra.Command{
 	Args:    cobra.ExactArgs(2),
 	Aliases: []string{"addexperiment", "ae"},
 	Run: func(cmd *cobra.Command, args []string) {
-		pool, err := helpers.GetPool()
+		pool, err := pgxpool.Connect(context.Background(), "postgres:///infinity")
 
 		if err != nil {
 			panic(err)
@@ -55,7 +56,7 @@ var remExpCommand = &cobra.Command{
 	Args:    cobra.ExactArgs(2),
 	Aliases: []string{"removeexperiment", "re", "delexp"},
 	Run: func(cmd *cobra.Command, args []string) {
-		pool, err := helpers.GetPool()
+		pool, err := pgxpool.Connect(context.Background(), "postgres:///infinity")
 
 		if err != nil {
 			panic(err)
@@ -99,7 +100,7 @@ var adminCmd = &cobra.Command{
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeFull) {
+	if devmode.DevMode().Allows(types.DevModeFull) {
 		adminCmd.AddCommand(addExpCommand)
 		adminCmd.AddCommand(remExpCommand)
 

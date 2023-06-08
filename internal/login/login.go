@@ -1,4 +1,6 @@
-package lib
+// Package login defines the authentication subsystem of iblcli. This core lib
+// can be used by other packages to authenticate with the IBL API.
+package login
 
 import (
 	"context"
@@ -10,7 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibl/internal/config"
+	"github.com/InfinityBotList/ibl/internal/input"
+	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
@@ -38,8 +43,9 @@ func init() {
 	})
 }
 
-func webAuthUser() (string, string, error) {
-	resp, err := helpers.NewReq().Get("list/oauth2").Do()
+// WebAuthUser performs a web-based OAuth2 login for users
+func WebAuthUser() (string, string, error) {
+	resp, err := api.NewReq().Get("list/oauth2").Do()
 
 	if err != nil {
 		return "", "", errors.New("error occurred while getting OAuth2 URL: " + err.Error())
@@ -50,7 +56,7 @@ func webAuthUser() (string, string, error) {
 	err = resp.Json(&oauth2Data)
 
 	if err != nil {
-		fmt.Print(helpers.RedText("Error parsing OAuth2 URL: " + err.Error()))
+		fmt.Print(ui.RedText("Error parsing OAuth2 URL: " + err.Error()))
 		return "", "", err
 	}
 
@@ -68,7 +74,7 @@ func webAuthUser() (string, string, error) {
 
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Print(helpers.BlueText("Please open the following URL in your browser and follow the instructions:"))
+	fmt.Print(ui.BlueText("Please open the following URL in your browser and follow the instructions:"))
 	fmt.Println("")
 	fmt.Println(strings.ReplaceAll(oauth2Data.URL, "%REDIRECT_URL%", "http://localhost:3000") + "&state=" + state)
 
@@ -91,7 +97,7 @@ func webAuthUser() (string, string, error) {
 	}
 
 	// Exchange code for token
-	resp, err = helpers.NewReq().Put("users").Json(popltypes.AuthorizeRequest{
+	resp, err = api.NewReq().Put("users").Json(popltypes.AuthorizeRequest{
 		ClientID:    oauth2Data.ClientID,
 		Code:        login.code,
 		Scope:       "external_auth",
@@ -128,13 +134,14 @@ func webAuthUser() (string, string, error) {
 	return loginData.UserID, loginData.Token, nil
 }
 
+// LoginUser performs a login for the user/bot/server
 func LoginUser() {
-	fmt.Print(helpers.BoldBlueText(helpers.AddUnderDecor("Login")))
+	fmt.Print(ui.BoldBlueText(ui.AddUnderDecor("Login")))
 
 	var authType = os.Getenv("REQUIRED_AUTH_METHOD")
 
 	if strings.ToLower(authType) != "bot" && strings.ToLower(authType) != "user" && strings.ToLower(authType) != "server" {
-		authType = helpers.GetInput("Auth Type (bot/user/server)", func(s string) bool {
+		authType = input.GetInput("Auth Type (bot/user/server)", func(s string) bool {
 			if strings.ToLower(s) == "bot" || strings.ToLower(s) == "user" || strings.ToLower(s) == "server" {
 				return true
 			} else {
@@ -161,32 +168,32 @@ func LoginUser() {
 	var targetID string
 	var token string
 	if targetType == types.TargetTypeUser {
-		var webAuth = helpers.GetInput("Do you have a working browser for web auth right now? If not, type 'no' to use standard token auth. Headless/server users should also type 'no' here", func(s string) bool {
+		var webAuth = input.GetInput("Do you have a working browser for web auth right now? If not, type 'no' to use standard token auth. Headless/server users should also type 'no' here", func(s string) bool {
 			return s == "yes" || s == "no"
 		})
 
 		if webAuth == "yes" {
 			// Create external auth
 			var err error
-			targetID, token, err = webAuthUser()
+			targetID, token, err = WebAuthUser()
 
 			if err != nil {
-				fmt.Print(helpers.RedText("ERROR: " + err.Error()))
+				fmt.Print(ui.RedText("ERROR: " + err.Error()))
 				os.Exit(1)
 			}
 		}
 	}
 
 	if len(targetID) == 0 {
-		targetID = helpers.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
+		targetID = input.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
 			return len(s) > 0
 		})
 
-		token = helpers.GetPassword("API Token [you can get this from bot/profile/server settings]")
+		token = input.GetPassword("API Token [you can get this from bot/profile/server settings]")
 	}
 
 	// Check auth with API
-	resp, err := helpers.NewReq().Post("list/auth-test").Json(types.TestAuth{
+	resp, err := api.NewReq().Post("list/auth-test").Json(types.TestAuth{
 		AuthType: targetType,
 		TargetID: targetID,
 		Token:    token,
@@ -215,7 +222,7 @@ func LoginUser() {
 	}
 
 	// Write the config
-	err = helpers.WriteConfig("auth@"+string(payload.TargetType), types.TestAuth{
+	err = config.WriteConfig("auth@"+string(payload.TargetType), types.TestAuth{
 		AuthType: payload.TargetType,
 		TargetID: payload.ID,
 		Token:    token,
@@ -225,68 +232,4 @@ func LoginUser() {
 		fmt.Println("Error writing config:", err)
 		os.Exit(1)
 	}
-}
-
-func GetUsername(userId string) (string, error) {
-	resp, err := helpers.NewReq().Get("users/" + userId + "/seo").Do()
-
-	if err != nil {
-		return "", err
-	}
-
-	if resp.Response.StatusCode != 200 {
-		return "", fmt.Errorf("error getting username, got status code %d", resp.Response.StatusCode)
-	}
-
-	var user struct {
-		Username string `json:"username"`
-	}
-
-	err = resp.Json(&user)
-
-	if err != nil {
-		return "", err
-	}
-
-	return user.Username, nil
-}
-
-func AccountSwitcher() types.TestAuth {
-	var auth types.TestAuth
-
-	var flag bool = true
-	for flag {
-		var a *types.TestAuth
-		err := helpers.LoadConfig("auth@user", &a)
-
-		if err != nil {
-			fmt.Print(helpers.RedText("You are not logged in on IBL CLI yet! A login is required for proper configuration and setup..."))
-			os.Setenv("REQUIRED_AUTH_METHOD", "user")
-			LoginUser()
-		} else {
-			username, err := GetUsername(a.TargetID)
-
-			if err != nil {
-				fmt.Print(helpers.RedText("Error getting username: " + err.Error() + ", reauthenticating..."))
-				os.Setenv("REQUIRED_AUTH_METHOD", "user")
-				LoginUser()
-			}
-
-			confirm := helpers.GetInput(fmt.Sprint("You're logged in as ", helpers.BoldText(username), "Continue [y/n]"), func(s string) bool {
-				return s == "y" || s == "n"
-			})
-
-			if confirm == "n" {
-				os.Setenv("REQUIRED_AUTH_METHOD", "user")
-				LoginUser()
-			}
-		}
-
-		fmt.Print(helpers.GreenText("Excellent! You're logged in!"))
-		flag = false
-
-		auth = *a
-	}
-
-	return auth
 }

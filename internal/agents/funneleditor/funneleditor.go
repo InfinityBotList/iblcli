@@ -1,4 +1,4 @@
-package funnel
+package funneleditor
 
 import (
 	"errors"
@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibl/internal/config"
+	"github.com/InfinityBotList/ibl/internal/input"
+	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
@@ -42,10 +45,10 @@ var funnelActions = map[string]funnelAction{
 	"Q": {
 		Name: "Save And Quit",
 		Action: func(_ types.TestAuth, funnels *types.FunnelList) error {
-			err := helpers.WriteConfig("funnels", funnels)
+			err := config.WriteConfig("funnels", funnels)
 
 			if err != nil {
-				fmt.Print(helpers.RedText("Config save error: " + err.Error()))
+				fmt.Print(ui.RedText("Config save error: " + err.Error()))
 				time.Sleep(5 * time.Second)
 				os.Exit(1)
 			}
@@ -68,7 +71,7 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 		fmt.Println("Funnels:")
 
 		for i, funnel := range funnels.Funnels {
-			fmt.Print(helpers.BoldText("Funnel", i+1))
+			fmt.Print(ui.BoldText("Funnel", i+1))
 			fmt.Println("Target Type:", funnel.TargetType)
 			fmt.Println("Target ID:", funnel.TargetID)
 			fmt.Println("Endpoint ID:", funnel.EndpointID)
@@ -85,11 +88,11 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 
 		fmt.Println("")
 
-		keyInput := helpers.GetInput("Select an option?", func(s string) bool {
+		keyInput := input.GetInput("Select an option?", func(s string) bool {
 			_, ok := funnelActions[s]
 
 			if !ok {
-				fmt.Print(helpers.RedText("Invalid option"))
+				fmt.Print(ui.RedText("Invalid option"))
 				return false
 			}
 
@@ -99,26 +102,26 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 		action, ok := funnelActions[keyInput]
 
 		if !ok {
-			fmt.Print(helpers.RedText("Invalid option"))
+			fmt.Print(ui.RedText("Invalid option"))
 			continue
 		}
 
 		err := action.Action(user, &funnels)
 
 		if err != nil {
-			fmt.Print(helpers.RedText("Error:", err))
+			fmt.Print(ui.RedText("Error:", err))
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
 
 func portMan(_ types.TestAuth, funnels *types.FunnelList) error {
-	port := helpers.GetInput("What port should the webserver run on?", func(s string) bool {
+	port := input.GetInput("What port should the webserver run on?", func(s string) bool {
 		// Check if port is a number
 		_, err := strconv.Atoi(s)
 
 		if err != nil {
-			fmt.Fprint(os.Stderr, helpers.RedText("Invalid port number"))
+			fmt.Fprint(os.Stderr, ui.RedText("Invalid port number"))
 			return false
 		}
 
@@ -137,12 +140,12 @@ func portMan(_ types.TestAuth, funnels *types.FunnelList) error {
 }
 
 func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
-	domain := helpers.GetInput("What domain/IP will the webhook be accessible from?", func(s string) bool {
+	domain := input.GetInput("What domain/IP will the webhook be accessible from?", func(s string) bool {
 		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 			return true
 		}
 
-		fmt.Print(helpers.RedText("Invalid domain. Must start with http:// or https://"))
+		fmt.Print(ui.RedText("Invalid domain. Must start with http:// or https://"))
 		return false
 	})
 
@@ -153,15 +156,15 @@ func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
 
 func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 	if funnels.Port == 0 || funnels.Domain == "" {
-		fmt.Print(helpers.RedText("Please set a port and webhook domain ('P' and 'D') before adding a funnel"))
+		fmt.Print(ui.RedText("Please set a port and webhook domain ('P' and 'D') before adding a funnel"))
 		return nil
 	}
 
-	authType := helpers.GetInput("Auth Type (bot/server)", func(s string) bool {
+	authType := input.GetInput("Auth Type (bot/server)", func(s string) bool {
 		if strings.ToLower(s) == "bot" || strings.ToLower(s) == "server" {
 			return true
 		} else {
-			fmt.Print(helpers.RedText("Invalid auth type. Choose from bot, user or server"))
+			fmt.Print(ui.RedText("Invalid auth type. Choose from bot, user or server"))
 			return false
 		}
 	})
@@ -177,23 +180,23 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 		return errors.New("invalid target type")
 	}
 
-	targetID := helpers.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
+	targetID := input.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
 		return len(s) > 0
 	})
 
-	forwardTo := helpers.GetInput("Forward to?", func(s string) bool {
+	forwardTo := input.GetInput("Forward to?", func(s string) bool {
 		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 			return true
 		}
 
-		fmt.Print(helpers.RedText("Invalid domain. Must start with http:// or https://"))
+		fmt.Print(ui.RedText("Invalid domain. Must start with http:// or https://"))
 		return false
 	})
 
 	// Fetch entity
 	switch targetType {
 	case types.TargetTypeBot:
-		resp, err := helpers.NewReq().Get("bots/" + targetID).Do()
+		resp, err := api.NewReq().Get("bots/" + targetID).Do()
 
 		if err != nil {
 			return errors.New("invalid fetching bot:" + err.Error())
@@ -221,13 +224,13 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 			return errors.New("error occurred while parsing bot data: " + err.Error())
 		}
 
-		fmt.Print("Adding ", helpers.BoldText(e.User.Username+" ["+e.BotID+"]"))
-		fmt.Print(helpers.BlueText("Updating webhook configuration for this bot..."))
+		fmt.Print("Adding ", ui.BoldText(e.User.Username+" ["+e.BotID+"]"))
+		fmt.Print(ui.BlueText("Updating webhook configuration for this bot..."))
 
 		endpointId := crypto.RandString(32)
 		webhookSecret := crypto.RandString(128)
 
-		fmt.Print(helpers.BlueText("Domain: " + funnels.Domain + "/funnel?id=" + endpointId))
+		fmt.Print(ui.BlueText("Domain: " + funnels.Domain + "/funnel?id=" + endpointId))
 
 		tBool := true
 
@@ -238,7 +241,7 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 		}
 
 		// /users/{uid}/bots/{bid}/webhook
-		resp, err = helpers.NewReq().Patch("users/" + u.TargetID + "/bots/" + e.BotID + "/webhook").Auth(u.Token).Json(pw).Do()
+		resp, err = api.NewReq().Patch("users/" + u.TargetID + "/bots/" + e.BotID + "/webhook").Auth(u.Token).Json(pw).Do()
 
 		if err != nil {
 			return errors.New("error occurred while updating webhook: " + err.Error())
@@ -273,14 +276,14 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 }
 
 func editor(_ types.TestAuth, funnels *types.FunnelList) error {
-	err := helpers.WriteConfig("funnels", funnels)
+	err := config.WriteConfig("funnels", funnels)
 
 	if err != nil {
-		fmt.Print(helpers.RedText("Config save error: " + err.Error()))
+		fmt.Print(ui.RedText("Config save error: " + err.Error()))
 		time.Sleep(3 * time.Second)
 	}
 
-	cfgFile := helpers.ConfigFile()
+	cfgFile := config.ConfigFile()
 
 	// Get editor to use using EDITOR env var defaulting to nano if unset
 	editor := os.Getenv("EDITOR")
@@ -303,7 +306,7 @@ func editor(_ types.TestAuth, funnels *types.FunnelList) error {
 	}
 
 	// Reload config
-	err = helpers.LoadConfig("funnels", funnels)
+	err = config.LoadConfig("funnels", funnels)
 
 	if err != nil {
 		return errors.New("error reloading config: " + err.Error())

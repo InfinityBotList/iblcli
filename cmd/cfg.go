@@ -6,8 +6,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/InfinityBotList/ibl/helpers"
-	"github.com/InfinityBotList/ibl/internal/lib"
+	"github.com/InfinityBotList/ibl/internal/config"
+	"github.com/InfinityBotList/ibl/internal/login"
+	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var loginCmd = &cobra.Command{
 	Long:    `Login to the IBL API using a bot/user/server token.`,
 	Aliases: []string{"auth", "a", "l"},
 	Run: func(cmd *cobra.Command, args []string) {
-		lib.LoginUser()
+		login.LoginUser()
 	},
 }
 
@@ -46,10 +47,10 @@ var devModeToggle = &cobra.Command{
 			DevMode = types.DevModeLocal
 		}
 
-		fmt.Print(helpers.YellowText("WARNING: Developer mode is enabled, use at your own risk"))
+		fmt.Print(ui.YellowText("WARNING: Developer mode is enabled, use at your own risk"))
 
 		// Write dev mode to config
-		helpers.WriteConfig("dev", types.DevModeCfg{
+		config.WriteConfig("dev", types.DevModeCfg{
 			Mode: DevMode,
 		})
 	},

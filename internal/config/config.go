@@ -1,4 +1,4 @@
-package helpers
+package config
 
 import (
 	"fmt"
@@ -6,6 +6,32 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+func ConfigFile() string {
+	envCfg := os.Getenv("INFINITY_CONFIG")
+
+	if envCfg != "" {
+		return envCfg
+	}
+
+	s, err := os.UserConfigDir()
+
+	if err != nil {
+		panic(err)
+	}
+
+	if s == "" {
+		panic("Error getting config dir")
+	}
+
+	err = os.MkdirAll(s+"/infinity", 0700)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return s + "/infinity"
+}
 
 func WriteConfig(name string, data any) error {
 	cfgFile := ConfigFile()

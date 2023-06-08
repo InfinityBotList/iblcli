@@ -8,7 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ var genEnumsCmd = &cobra.Command{
 	Short: "Generate enums for teams and other objects",
 	Long:  `Generate enums for teams and other objects`,
 	Run: func(cmd *cobra.Command, args []string) {
-		permRes, err := helpers.NewReq().Get("teams/meta/permissions").Do()
+		permRes, err := api.NewReq().Get("teams/meta/permissions").Do()
 
 		if err != nil {
 			fmt.Println("Error getting permissions:", err)
@@ -72,7 +73,7 @@ var genEnumsCmd = &cobra.Command{
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeFull) {
+	if devmode.DevMode().Allows(types.DevModeFull) {
 		rootCmd.AddCommand(genEnumsCmd)
 	}
 }

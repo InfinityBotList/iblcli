@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/InfinityBotList/ibl/helpers"
+	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ type FileList []NginxFile
 func addTypings(path, remoteDir, localDir string, filter func(string) bool) error {
 	fmt.Println("=>", localDir, "( "+remoteDir+" )")
 
-	res, err := helpers.NewReq().Get("json/" + remoteDir).Do()
+	res, err := api.NewReq().Get("json/" + remoteDir).Do()
 
 	if err != nil {
 		fmt.Println("Error getting response:", err)
@@ -53,7 +54,7 @@ func addTypings(path, remoteDir, localDir string, filter func(string) bool) erro
 	for i, file := range list {
 		fmt.Println("["+strconv.Itoa(i+1)+"/"+strconv.Itoa(len(list))+"] Downloading", file.Name)
 
-		res, err := helpers.NewReq().Get(remoteDir + "/" + file.Name).Do()
+		res, err := api.NewReq().Get(remoteDir + "/" + file.Name).Do()
 
 		if err != nil {
 			fmt.Println("Error downloading file:", err)
@@ -102,10 +103,10 @@ var typegenCmd = &cobra.Command{
 
 		os.MkdirAll(path, 0755)
 
-		helpers.ClientURL = "https://cdn.infinitybots.gg"
+		api.ClientURL = "https://cdn.infinitybots.gg"
 
 		// Find list of all bindings
-		res, err := helpers.NewReq().Get("json/dev/bindings").Do()
+		res, err := api.NewReq().Get("json/dev/bindings").Do()
 
 		if err != nil {
 			fmt.Println("Error getting response:", err)
@@ -131,7 +132,7 @@ var typegenCmd = &cobra.Command{
 			}
 		}
 
-		helpers.ClientURL = helpers.APIUrl
+		api.ClientURL = api.APIUrl
 	},
 }
 
@@ -152,7 +153,7 @@ var goTypeGen = &cobra.Command{
 
 		os.MkdirAll(path, 0755)
 
-		helpers.ClientURL = "https://cdn.infinitybots.gg"
+		api.ClientURL = "https://cdn.infinitybots.gg"
 
 		err := addTypings(path, "dev/bindings/popplio/go/types", "", func(name string) bool {
 			return strings.HasSuffix(name, ".go")
@@ -163,12 +164,12 @@ var goTypeGen = &cobra.Command{
 			return
 		}
 
-		helpers.ClientURL = helpers.APIUrl
+		api.ClientURL = api.APIUrl
 	},
 }
 
 func init() {
-	if helpers.DevMode().Allows(types.DevModeLocal) {
+	if devmode.DevMode().Allows(types.DevModeLocal) {
 		rootCmd.AddCommand(typegenCmd)
 		rootCmd.AddCommand(goTypeGen)
 	}
