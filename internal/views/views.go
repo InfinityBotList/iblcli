@@ -1,3 +1,4 @@
+// Views include core UI components common to iblcli
 package views
 
 import (
@@ -13,11 +14,12 @@ import (
 	"github.com/infinitybotlist/eureka/dovewing"
 )
 
-func UserBotSelector() *dovewing.DiscordUser {
+func UserBotSelector(auth types.TestAuth) *dovewing.DiscordUser {
+
 	return nil
 }
 
-func AccountSwitcher() types.TestAuth {
+func AccountSwitcher(authType string) types.TestAuth {
 	var auth types.TestAuth
 
 	var flag bool = true
@@ -26,9 +28,8 @@ func AccountSwitcher() types.TestAuth {
 		err := config.LoadConfig("auth@user", &a)
 
 		if err != nil {
-			fmt.Print(ui.RedText("You are not logged in on IBL CLI yet! A login is required for proper configuration and setup..."))
-			os.Setenv("REQUIRED_AUTH_METHOD", "user")
-			login.LoginUser()
+			fmt.Print(ui.RedText("You are not logged in on IBL CLI yet (as a " + authType + ")! In order to continue, you must login here..."))
+			login.LoginUser(authType)
 		} else {
 			res, err := api.NewReq().Get("_duser/" + a.TargetID).Do()
 
@@ -43,17 +44,24 @@ func AccountSwitcher() types.TestAuth {
 
 			if err != nil {
 				fmt.Print(ui.RedText("Error getting username: " + err.Error() + ", reauthenticating..."))
-				os.Setenv("REQUIRED_AUTH_METHOD", "user")
-				login.LoginUser()
+				login.LoginUser(authType)
 			}
 
-			confirm := input.GetInput(fmt.Sprint("You're logged in as ", ui.BoldText(user.Username), "Continue [y/n]"), func(s string) bool {
+			confirm := input.GetInput(fmt.Sprint("You're logged in as ", ui.BoldTextNoLn(user.Username), " ["+authType+"]. ", "Continue [y/n]"), func(s string) bool {
 				return s == "y" || s == "n"
 			})
 
 			if confirm == "n" {
-				os.Setenv("REQUIRED_AUTH_METHOD", "user")
-				login.LoginUser()
+				login.LoginUser(authType)
+			}
+		}
+
+		if a == nil {
+			err = config.LoadConfig("auth@user", &a)
+
+			if err != nil {
+				fmt.Print(ui.RedText("Error loading config: " + err.Error() + ", retrying..."))
+				continue
 			}
 		}
 

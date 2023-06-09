@@ -21,7 +21,7 @@ var setupCmd = &cobra.Command{
 	Short: "Sets up the a bot for webhooks.",
 	Long:  "Sets up a bot for webhooks.",
 	Run: func(cmd *cobra.Command, args []string) {
-		auth := views.AccountSwitcher()
+		auth := views.AccountSwitcher(string(types.TargetTypeUser))
 
 		if os.Getenv("DEBUG") == "true" {
 			fmt.Println("AuthSwitcher:", auth) // temporary to avoid a compile error
@@ -41,9 +41,10 @@ var setupCmd = &cobra.Command{
 
 // adminCmd represents the admin command
 var webhCmd = &cobra.Command{
-	Use:   "webhook",
-	Short: "Webhook setup and funneling",
-	Long:  `Webhook setup and funneling`,
+	Use:     "webhook",
+	Short:   "Webhook setup and funneling",
+	Long:    `Webhook setup and funneling`,
+	Aliases: []string{"webhooks", "funnel", "funnels"},
 }
 
 func init() {

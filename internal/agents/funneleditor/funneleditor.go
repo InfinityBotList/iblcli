@@ -21,47 +21,52 @@ import (
 type FunnelCommand = func(types.TestAuth, *types.FunnelList) error
 
 type funnelAction struct {
+	Char   string
 	Name   string
 	Action FunnelCommand
 }
 
-var funnelActions = map[string]funnelAction{
-	"P": {
+var funnelActions = []funnelAction{
+	{
+		Char:   "P",
 		Name:   "Change webserver port",
 		Action: portMan,
 	},
-	"D": {
+	{
+		Char:   "D",
 		Name:   "Set domain",
 		Action: setDomain,
 	},
-	"N": {
+	{
+		Char:   "N",
 		Name:   "New funnel",
 		Action: newFunnel,
 	},
-	"E": {
+	{
+		Char:   "E",
 		Name:   "Open funnel editor",
 		Action: editor,
 	},
-	"Q": {
-		Name: "Save And Quit",
-		Action: func(_ types.TestAuth, funnels *types.FunnelList) error {
-			err := config.WriteConfig("funnels", funnels)
-
-			if err != nil {
-				fmt.Print(ui.RedText("Config save error: " + err.Error()))
-				time.Sleep(5 * time.Second)
-				os.Exit(1)
-			}
-
-			os.Exit(0)
-			return nil
-		},
+	{
+		Char:   "Q",
+		Name:   "Save And Quit",
+		Action: saveAndQuit,
 	},
 }
 
 func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 	for {
-		fmt.Println("")
+		fmt.Println(`
+Welcome to IBL Funnels!
+
+Funnels are a way to ingest webhooks v2 data from the web (and its *scary* out there!)
+to a service hosted locally on your machine, *hopefully* firewalled and bound to 127.0.0.1 
+only!!!
+
+To start out, set a port, the domain at which the *funnel* will be hosted, then start creating 
+funnels to your services!
+					`)
+
 		fmt.Println("")
 
 		// Print current settings
@@ -72,45 +77,46 @@ func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
 
 		for i, funnel := range funnels.Funnels {
 			fmt.Print(ui.BoldText("Funnel", i+1))
-			fmt.Println("Target Type:", funnel.TargetType)
-			fmt.Println("Target ID:", funnel.TargetID)
-			fmt.Println("Endpoint ID:", funnel.EndpointID)
-			fmt.Println("Forward:", funnel.Forward)
+			fmt.Println(funnel.String())
 			fmt.Println("")
 		}
 
 		fmt.Println("")
 		fmt.Println("")
 
-		for key, action := range funnelActions {
-			fmt.Println(key, "-", action.Name)
+		for _, action := range funnelActions {
+			fmt.Println(action.Char, "-", action.Name)
 		}
 
 		fmt.Println("")
 
 		keyInput := input.GetInput("Select an option?", func(s string) bool {
-			_, ok := funnelActions[s]
-
-			if !ok {
-				fmt.Print(ui.RedText("Invalid option"))
-				return false
+			for _, action := range funnelActions {
+				if action.Char == s {
+					return true
+				}
 			}
 
-			return true
+			fmt.Print(ui.RedText("Invalid option"))
+			return false
 		})
 
-		action, ok := funnelActions[keyInput]
+		var flag = false
+		for _, action := range funnelActions {
+			if action.Char == keyInput {
+				flag = true
+				err := action.Action(user, &funnels)
 
-		if !ok {
-			fmt.Print(ui.RedText("Invalid option"))
-			continue
+				if err != nil {
+					fmt.Print(ui.RedText("Error: ", err.Error))
+					time.Sleep(5 * time.Second)
+				}
+			}
 		}
 
-		err := action.Action(user, &funnels)
-
-		if err != nil {
-			fmt.Print(ui.RedText("Error:", err))
-			time.Sleep(5 * time.Second)
+		if !flag {
+			fmt.Print(ui.RedText("Invalid option"))
+			continue
 		}
 	}
 }
@@ -156,8 +162,7 @@ func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
 
 func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 	if funnels.Port == 0 || funnels.Domain == "" {
-		fmt.Print(ui.RedText("Please set a port and webhook domain ('P' and 'D') before adding a funnel"))
-		return nil
+		return errors.New("please set a port and webhook domain ('P' and 'D') before adding a funnel")
 	}
 
 	authType := input.GetInput("Auth Type (bot/server)", func(s string) bool {
@@ -312,5 +317,18 @@ func editor(_ types.TestAuth, funnels *types.FunnelList) error {
 		return errors.New("error reloading config: " + err.Error())
 	}
 
+	return nil
+}
+
+func saveAndQuit(_ types.TestAuth, funnels *types.FunnelList) error {
+	err := config.WriteConfig("funnels", funnels)
+
+	if err != nil {
+		fmt.Print(ui.RedText("Config save error: " + err.Error()))
+		time.Sleep(5 * time.Second)
+		os.Exit(1)
+	}
+
+	os.Exit(0)
 	return nil
 }

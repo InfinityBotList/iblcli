@@ -6,6 +6,7 @@ import (
 
 var (
 	BoldText     = color.New(color.Bold).SprintlnFunc()
+	BoldTextNoLn = color.New(color.Bold).SprintFunc()
 	BlueText     = color.New(color.FgCyan).SprintlnFunc()
 	RedText      = color.New(color.FgRed).SprintlnFunc()
 	YellowText   = color.New(color.FgYellow).SprintlnFunc()

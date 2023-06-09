@@ -19,7 +19,7 @@ var loginCmd = &cobra.Command{
 	Long:    `Login to the IBL API using a bot/user/server token.`,
 	Aliases: []string{"auth", "a", "l"},
 	Run: func(cmd *cobra.Command, args []string) {
-		login.LoginUser()
+		login.LoginUser("")
 	},
 }
 

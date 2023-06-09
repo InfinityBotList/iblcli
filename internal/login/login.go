@@ -135,10 +135,8 @@ func WebAuthUser() (string, string, error) {
 }
 
 // LoginUser performs a login for the user/bot/server
-func LoginUser() {
+func LoginUser(authType string) {
 	fmt.Print(ui.BoldBlueText(ui.AddUnderDecor("Login")))
-
-	var authType = os.Getenv("REQUIRED_AUTH_METHOD")
 
 	if strings.ToLower(authType) != "bot" && strings.ToLower(authType) != "user" && strings.ToLower(authType) != "server" {
 		authType = input.GetInput("Auth Type (bot/user/server)", func(s string) bool {
@@ -168,11 +166,11 @@ func LoginUser() {
 	var targetID string
 	var token string
 	if targetType == types.TargetTypeUser {
-		var webAuth = input.GetInput("Do you have a working browser for web auth right now? If not, type 'no' to use standard token auth. Headless/server users should also type 'no' here", func(s string) bool {
-			return s == "yes" || s == "no"
+		var webAuth = input.GetInput("Do you have a working browser for web auth right now? If not, type 'no' to use standard token auth. Headless/server users should also type 'no' here. [yes/no]", func(s string) bool {
+			return s == "yes" || s == "no" || s == "y" || s == "n"
 		})
 
-		if webAuth == "yes" {
+		if webAuth == "yes" || webAuth == "y" {
 			// Create external auth
 			var err error
 			targetID, token, err = WebAuthUser()
