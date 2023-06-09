@@ -108,7 +108,7 @@ funnels to your services!
 				err := action.Action(user, &funnels)
 
 				if err != nil {
-					fmt.Print(ui.RedText("Error: ", err))
+					fmt.Print(ui.RedText("Error:", err))
 					time.Sleep(5 * time.Second)
 				}
 			}
