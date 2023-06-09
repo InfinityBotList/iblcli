@@ -9,7 +9,6 @@ import (
 	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // TODO
@@ -28,87 +27,33 @@ const CrossCompileNote = `
 6. If you face any build issues on macOS, try removing /opt/homebrew/bin/x86_64-linux-gnu-gcc and then ln -sf /opt/homebrew/bin/x86_64-unknown-linux-gnu-cc /opt/homebrew/bin/x86_64-linux-gnu-gcc
 `
 
-// buildPkgCommand allows for the building of packages
-var buildPkgCommand = &cobra.Command{
-	Use:   "build",
-	Short: "Build an IBL service",
-	Long:  `Builds an IBL service`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Open pkg.yaml
-		fmt.Print(ui.BoldText("[INIT] Opening pkg.yaml"))
-
-		bytes, err := os.ReadFile("pkg.yaml")
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Parse pkg.yaml
-		var pkg types.BuildPackage
-
-		err = yaml.Unmarshal(bytes, &pkg)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Check if the pkg is valid
-		err = rootValidator.Struct(pkg)
-
-		if err != nil {
-			panic(err)
-		}
-
-		buildpkg.Build(pkg, "build")
-	},
-}
-
-// buildPkgCommand allows for the building of packages
-var deployPkgCommand = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploys an update to an IBL service",
-	Long:  `Deploys an update to an IBL service`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Open pkg.yaml
-		fmt.Print(ui.BoldText("[INIT] Opening pkg.yaml"))
-
-		bytes, err := os.ReadFile("pkg.yaml")
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Parse pkg.yaml
-		var pkg types.BuildPackage
-
-		err = yaml.Unmarshal(bytes, &pkg)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Check if the pkg is valid
-		err = rootValidator.Struct(pkg)
-
-		if err != nil {
-			panic(err)
-		}
-
-		buildpkg.Build(pkg, "deploy")
-	},
-}
-
 // pkgCmd represents the pkg command
 var pkgCmd = &cobra.Command{
-	Use:   "pkg",
-	Short: "Package (building etc) operations",
-	Long:  `Package (building etc) operations`,
+	Use:   "pkg [build|deploy]",
+	Short: "Package build system",
+	Long:  `Package build system`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		action := args[0]
+
+		pkg, err := buildpkg.LoadPackage()
+
+		if err != nil {
+			fmt.Print(ui.RedText("Failed to load package: " + err.Error()))
+			os.Exit(1)
+		}
+
+		err = buildpkg.Enter(*pkg, action)
+
+		if err != nil {
+			fmt.Print(ui.RedText(err.Error()))
+			os.Exit(1)
+		}
+	},
 }
 
 func init() {
 	if devmode.DevMode().Allows(types.DevModeLocal) {
-		pkgCmd.AddCommand(buildPkgCommand)
-		pkgCmd.AddCommand(deployPkgCommand)
 		rootCmd.AddCommand(pkgCmd)
 	}
 }

@@ -29,3 +29,11 @@ func GetVpsURL() string {
 
 	return os.Getenv("VPS_URL")
 }
+
+func GetVpsSSH() string {
+	if os.Getenv("VPS_SSH") == "" {
+		return "root@100.105.163.12"
+	}
+
+	return os.Getenv("VPS_SSH")
+}

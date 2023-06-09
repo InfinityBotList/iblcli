@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +21,6 @@ var (
 	ProjectName string
 )
 
-var rootValidator *validator.Validate
-
 func init() {
 	// Use runtime/debug vcs.revision to get the git commit hash
 	if info, ok := debug.ReadBuildInfo(); ok {
@@ -37,8 +34,6 @@ func init() {
 	if GitCommit == "" {
 		GitCommit = "unknown"
 	}
-
-	rootValidator = validator.New()
 }
 
 // rootCmd represents the base command when called without any subcommands
