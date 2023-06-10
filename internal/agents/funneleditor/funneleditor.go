@@ -242,7 +242,9 @@ func newFunnel(u popltypes.TestAuth, funnels *types.FunnelList) error {
 
 func deleteFunnel(_ popltypes.TestAuth, funnels *types.FunnelList) error {
 	for i, funnel := range funnels.Funnels {
-		fmt.Printf("%d. %s\n\n", i+1, funnel.String())
+		fmt.Print(ui.BoldText("Funnel", i+1))
+		fmt.Println(funnel.String())
+		fmt.Println("")
 	}
 
 	index := input.GetInput("Which funnel would you like to delete?", func(s string) bool {
