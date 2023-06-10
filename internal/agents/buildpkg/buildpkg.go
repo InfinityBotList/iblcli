@@ -133,7 +133,10 @@ func Enter(cfg types.BuildPackage, arg string) error {
 		}
 	}
 
-	fmt.Print(ui.BoldText("[INIT] Using " + cfg.Language + " build system"))
+	// Pring the build system being used, but only if not dummy
+	if cfg.Language != "dummy" {
+		fmt.Print(ui.BoldText("[INIT] Using " + cfg.Language + " build system"))
+	}
 
 	langAction, ok := Actions[cfg.Language]
 
