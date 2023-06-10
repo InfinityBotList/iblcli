@@ -36,11 +36,11 @@ func UserEntitySelector(auth popltypes.TestAuth, filter func(e types.Entity) boo
 	}
 
 	// Create a set of entities
-	var entities []types.Entity
+	var rawEntities []types.Entity
 
 	// #1 - Bots
 	for _, bot := range user.UserBots {
-		entities = append(entities, types.Entity{
+		rawEntities = append(rawEntities, types.Entity{
 			ID:         bot.User.ID,
 			Name:       bot.User.Username,
 			TargetType: types.TargetTypeBot,
@@ -49,7 +49,7 @@ func UserEntitySelector(auth popltypes.TestAuth, filter func(e types.Entity) boo
 
 	// #2 - Teams (not all apis support teams yet!)
 	for _, team := range user.UserTeams {
-		entities = append(entities, types.Entity{
+		rawEntities = append(rawEntities, types.Entity{
 			ID:         team.ID,
 			Name:       team.Name,
 			TargetType: types.TargetTypeTeam,
@@ -57,10 +57,11 @@ func UserEntitySelector(auth popltypes.TestAuth, filter func(e types.Entity) boo
 	}
 
 	// Filter the entities
-	for i := 0; i < len(entities); i++ {
-		if !filter(entities[i]) {
-			entities = append(entities[:i], entities[i+1:]...)
-			i--
+	var entities []types.Entity
+
+	for _, entity := range rawEntities {
+		if filter(entity) {
+			entities = append(entities, entity)
 		}
 	}
 
