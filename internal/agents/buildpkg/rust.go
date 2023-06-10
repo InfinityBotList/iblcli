@@ -165,6 +165,13 @@ var rust = map[string][]action{
 		{
 			Name: "Building bindings",
 			Func: func(cfg types.BuildPackage) error {
+				bindingsLoc, ok := cfg.LangOpts["bindings"]
+
+				if !ok || bindingsLoc == "" {
+					fmt.Print(ui.YellowText("No bindings to copy"))
+					return nil
+				}
+
 				// Here, we use cargo test to call ts-rs binding generation
 				env := map[string]string{
 					"RUST_BACKTRACE":   "1",
