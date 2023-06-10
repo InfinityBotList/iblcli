@@ -168,7 +168,7 @@ var rust = map[string][]action{
 				bindingsLoc, ok := cfg.LangOpts["bindings"]
 
 				if !ok || bindingsLoc == "" {
-					fmt.Print(ui.YellowText("No bindings to build"))
+					fmt.Print(ui.GreenText("No bindings to build"))
 					return nil
 				}
 
@@ -259,7 +259,7 @@ var rust = map[string][]action{
 				bindingsLoc, ok := cfg.LangOpts["bindings"]
 
 				if !ok || bindingsLoc == "" {
-					fmt.Print(ui.YellowText("No bindings to copy"))
+					fmt.Print(ui.GreenText("No bindings to copy"))
 					return nil
 				}
 
