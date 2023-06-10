@@ -172,7 +172,7 @@ func newFunnel(u popltypes.TestAuth, funnels *types.FunnelList) error {
 	}
 
 	entity, err := views.UserEntitySelector(u, func(e types.Entity) bool {
-		return e.TargetType != types.TargetTypeBot // Nothing else is supported yet, so...
+		return e.TargetType == types.TargetTypeBot // Nothing else is supported yet, so...
 	})
 
 	if err != nil {
