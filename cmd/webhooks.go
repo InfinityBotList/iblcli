@@ -21,21 +21,26 @@ var setupCmd = &cobra.Command{
 	Short: "Sets up the a bot for webhooks.",
 	Long:  "Sets up a bot for webhooks.",
 	Run: func(cmd *cobra.Command, args []string) {
-		auth := views.AccountSwitcher(string(types.TargetTypeUser))
+		auth, err := views.AccountSwitcher(string(types.TargetTypeUser))
+
+		if err != nil {
+			fmt.Print(ui.RedText("Error getting account info: " + err.Error() + ", exiting..."))
+			os.Exit(1)
+		}
 
 		if os.Getenv("DEBUG") == "true" {
 			fmt.Println("AuthSwitcher:", auth) // temporary to avoid a compile error
 		}
 
 		var funnels *types.FunnelList
-		err := config.LoadConfig("funnels", &funnels)
+		err = config.LoadConfig("funnels", &funnels)
 
 		if err != nil {
 			fmt.Print(ui.RedText("No valid funnel config found, resetting"))
 			funnels = &types.FunnelList{}
 		}
 
-		funneleditor.ManageConsole(auth, *funnels)
+		funneleditor.ManageConsole(*auth, *funnels)
 	},
 }
 

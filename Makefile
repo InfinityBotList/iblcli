@@ -34,3 +34,4 @@ publish:
 	mv -vf bin/* /iblcdn/public/dev/iblcli
 	echo -n "$(BUILDREV)" > /iblcdn/public/dev/iblcli/current_rev
 	rm -rf bin
+	

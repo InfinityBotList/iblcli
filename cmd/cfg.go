@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/InfinityBotList/ibl/internal/config"
 	"github.com/InfinityBotList/ibl/internal/login"
@@ -19,7 +20,12 @@ var loginCmd = &cobra.Command{
 	Long:    `Login to the IBL API using a bot/user/server token.`,
 	Aliases: []string{"auth", "a", "l"},
 	Run: func(cmd *cobra.Command, args []string) {
-		login.LoginUser("")
+		_, err := login.LoginUser("")
+
+		if err != nil {
+			fmt.Print(ui.RedText("Error logging in: " + err.Error()))
+			os.Exit(1)
+		}
 	},
 }
 

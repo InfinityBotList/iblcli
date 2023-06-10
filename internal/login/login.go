@@ -19,6 +19,7 @@ import (
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
+	"github.com/infinitybotlist/eureka/uapi"
 )
 
 type iLogin struct {
@@ -135,7 +136,7 @@ func WebAuthUser() (string, string, error) {
 }
 
 // LoginUser performs a login for the user/bot/server
-func LoginUser(authType string) {
+func LoginUser(authType string) (*popltypes.TestAuth, error) {
 	fmt.Print(ui.BoldBlueText(ui.AddUnderDecor("Login")))
 
 	if strings.ToLower(authType) != "bot" && strings.ToLower(authType) != "user" && strings.ToLower(authType) != "server" {
@@ -159,8 +160,7 @@ func LoginUser(authType string) {
 	case "server":
 		targetType = types.TargetTypeServer
 	default:
-		fmt.Println("Invalid auth type")
-		os.Exit(1)
+		return nil, errors.New("invalid auth type")
 	}
 
 	var targetID string
@@ -176,8 +176,7 @@ func LoginUser(authType string) {
 			targetID, token, err = WebAuthUser()
 
 			if err != nil {
-				fmt.Print(ui.RedText("ERROR: " + err.Error()))
-				os.Exit(1)
+				return nil, errors.New("error occurred while performing web auth: " + err.Error())
 			}
 		}
 	}
@@ -191,28 +190,25 @@ func LoginUser(authType string) {
 	}
 
 	// Check auth with API
-	resp, err := api.NewReq().Post("list/auth-test").Json(types.TestAuth{
-		AuthType: targetType,
+	resp, err := api.NewReq().Post("list/auth-test").Json(popltypes.TestAuth{
+		AuthType: string(targetType),
 		TargetID: targetID,
 		Token:    token,
 	}).Do()
 
 	if err != nil {
-		fmt.Println("Error logging in:", err)
-		os.Exit(1)
+		return nil, errors.New("error occurred while validating auth: " + err.Error())
 	}
 
 	if resp.Response.StatusCode != 200 {
-		fmt.Println("Invalid token, got response code", resp.Response.StatusCode)
-		os.Exit(1)
+		return nil, errors.New("invalid token, got response code " + fmt.Sprint(resp.Response.StatusCode))
 	}
 
-	var payload types.AuthData
+	var payload uapi.AuthData
 	err = resp.Json(&payload)
 
 	if err != nil {
-		fmt.Println("Error logging in:", err)
-		os.Exit(1)
+		return nil, errors.New("error occurred while parsing auth data: " + err.Error())
 	}
 
 	if os.Getenv("DEBUG") == "true" {
@@ -220,14 +216,17 @@ func LoginUser(authType string) {
 	}
 
 	// Write the config
-	err = config.WriteConfig("auth@"+string(payload.TargetType), types.TestAuth{
+	auth := popltypes.TestAuth{
 		AuthType: payload.TargetType,
 		TargetID: payload.ID,
 		Token:    token,
-	})
+	}
+
+	err = config.WriteConfig("auth@"+string(payload.TargetType), auth)
 
 	if err != nil {
-		fmt.Println("Error writing config:", err)
-		os.Exit(1)
+		return nil, errors.New("error occurred while writing config: " + err.Error())
 	}
+
+	return &auth, nil
 }

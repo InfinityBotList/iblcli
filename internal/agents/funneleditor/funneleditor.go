@@ -13,12 +13,13 @@ import (
 	"github.com/InfinityBotList/ibl/internal/config"
 	"github.com/InfinityBotList/ibl/internal/input"
 	"github.com/InfinityBotList/ibl/internal/ui"
+	"github.com/InfinityBotList/ibl/internal/views"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/crypto"
 )
 
-type FunnelCommand = func(types.TestAuth, *types.FunnelList) error
+type FunnelCommand = func(popltypes.TestAuth, *types.FunnelList) error
 
 type funnelAction struct {
 	Char   string
@@ -43,6 +44,11 @@ var funnelActions = []funnelAction{
 		Action: newFunnel,
 	},
 	{
+		Char:   "R",
+		Name:   "Remove funnel",
+		Action: deleteFunnel,
+	},
+	{
 		Char:   "E",
 		Name:   "Open funnel editor",
 		Action: editor,
@@ -54,7 +60,7 @@ var funnelActions = []funnelAction{
 	},
 }
 
-func ManageConsole(user types.TestAuth, funnels types.FunnelList) {
+func ManageConsole(user popltypes.TestAuth, funnels types.FunnelList) {
 	for {
 		fmt.Println(`
 Welcome to IBL Funnels!
@@ -121,7 +127,7 @@ funnels to your services!
 	}
 }
 
-func portMan(_ types.TestAuth, funnels *types.FunnelList) error {
+func portMan(_ popltypes.TestAuth, funnels *types.FunnelList) error {
 	port := input.GetInput("What port should the webserver run on?", func(s string) bool {
 		// Check if port is a number
 		_, err := strconv.Atoi(s)
@@ -145,7 +151,7 @@ func portMan(_ types.TestAuth, funnels *types.FunnelList) error {
 	return nil
 }
 
-func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
+func setDomain(_ popltypes.TestAuth, funnels *types.FunnelList) error {
 	domain := input.GetInput("What domain/IP will the webhook be accessible from?", func(s string) bool {
 		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 			return true
@@ -160,34 +166,19 @@ func setDomain(_ types.TestAuth, funnels *types.FunnelList) error {
 	return nil
 }
 
-func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
+func newFunnel(u popltypes.TestAuth, funnels *types.FunnelList) error {
 	if funnels.Port == 0 || funnels.Domain == "" {
 		return errors.New("please set a port and webhook domain ('P' and 'D') before adding a funnel")
 	}
 
-	authType := input.GetInput("Auth Type (bot/server)", func(s string) bool {
-		if strings.ToLower(s) == "bot" || strings.ToLower(s) == "server" {
-			return true
-		} else {
-			fmt.Print(ui.RedText("Invalid auth type. Choose from bot, user or server"))
-			return false
-		}
+	entity, err := views.UserEntitySelector(u, []types.TargetType{
+		types.TargetTypeBot,
+		// TODO: Add teams, once supported, here
 	})
 
-	var targetType types.TargetType
-
-	switch strings.ToLower(authType) {
-	case "bot":
-		targetType = types.TargetTypeBot
-	case "server":
-		targetType = types.TargetTypeServer
-	default:
-		return errors.New("invalid target type")
+	if err != nil {
+		return err
 	}
-
-	targetID := input.GetInput("Target ID ["+authType+" ID, vanities are also supported]", func(s string) bool {
-		return len(s) > 0
-	})
 
 	forwardTo := input.GetInput("Forward to?", func(s string) bool {
 		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
@@ -199,37 +190,9 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 	})
 
 	// Fetch entity
-	switch targetType {
+	switch entity.TargetType {
 	case types.TargetTypeBot:
-		resp, err := api.NewReq().Get("bots/" + targetID).Do()
-
-		if err != nil {
-			return errors.New("invalid fetching bot:" + err.Error())
-		}
-
-		if resp.Response.StatusCode == 404 {
-			return errors.New("bot not found (404)")
-		}
-
-		if resp.Response.StatusCode != 200 {
-			body, err := resp.Body()
-
-			if err != nil {
-				return errors.New("api error and body resolve error (status code " + strconv.Itoa(resp.Response.StatusCode) + ")")
-			}
-
-			return errors.New("api error (status code " + strconv.Itoa(resp.Response.StatusCode) + "): " + string(body))
-		}
-
-		var e popltypes.Bot
-
-		err = resp.Json(&e)
-
-		if err != nil {
-			return errors.New("error occurred while parsing bot data: " + err.Error())
-		}
-
-		fmt.Print("Adding ", ui.BoldText(e.User.Username+" ["+e.BotID+"]"))
+		fmt.Print("Adding ", ui.BoldText(entity.Name+" ["+entity.ID+"]"))
 		fmt.Print(ui.BlueText("Updating webhook configuration for this bot..."))
 
 		endpointId := crypto.RandString(32)
@@ -246,7 +209,7 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 		}
 
 		// /users/{uid}/bots/{bid}/webhook
-		resp, err = api.NewReq().Patch("users/" + u.TargetID + "/bots/" + e.BotID + "/webhook").Auth(u.Token).Json(pw).Do()
+		resp, err := api.NewReq().Patch("users/" + u.TargetID + "/bots/" + entity.ID + "/webhook").Auth(u.Token).Json(pw).Do()
 
 		if err != nil {
 			return errors.New("error occurred while updating webhook: " + err.Error())
@@ -264,23 +227,54 @@ func newFunnel(u types.TestAuth, funnels *types.FunnelList) error {
 
 		// Add to funnels
 		funnels.Funnels = append(funnels.Funnels, types.WebhookFunnel{
-			TargetType:    targetType,
-			TargetID:      targetID,
+			TargetType:    entity.TargetType,
+			TargetID:      entity.ID,
 			WebhookSecret: webhookSecret,
 			EndpointID:    endpointId,
 			Forward:       forwardTo,
 		})
 
 		return nil
-
-	case types.TargetTypeServer:
-		return errors.New("server listing is not yet implemented on ibl itself")
+	default:
+		return errors.New("target type does not support webhook funnels")
 	}
+}
+
+func deleteFunnel(_ popltypes.TestAuth, funnels *types.FunnelList) error {
+	for i, funnel := range funnels.Funnels {
+		fmt.Printf("%d. %s\n\n", i+1, funnel.String())
+	}
+
+	index := input.GetInput("Which funnel would you like to delete?", func(s string) bool {
+		choice, err := strconv.Atoi(s)
+
+		if err != nil {
+			fmt.Print(ui.RedText("Invalid option"))
+			return false
+		}
+
+		// Check if choice is in range
+		if choice < 1 || choice > len(funnels.Funnels) {
+			fmt.Print(ui.RedText("Choice out of range, please try again"))
+			return false
+		}
+
+		return true
+	})
+
+	choice, err := strconv.Atoi(index)
+
+	if err != nil {
+		return errors.New("invalid choice")
+	}
+
+	// Remove from funnels
+	funnels.Funnels = append(funnels.Funnels[:choice-1], funnels.Funnels[choice:]...)
 
 	return nil
 }
 
-func editor(_ types.TestAuth, funnels *types.FunnelList) error {
+func editor(_ popltypes.TestAuth, funnels *types.FunnelList) error {
 	err := config.WriteConfig("funnels", funnels)
 
 	if err != nil {
@@ -320,7 +314,7 @@ func editor(_ types.TestAuth, funnels *types.FunnelList) error {
 	return nil
 }
 
-func saveAndQuit(_ types.TestAuth, funnels *types.FunnelList) error {
+func saveAndQuit(_ popltypes.TestAuth, funnels *types.FunnelList) error {
 	err := config.WriteConfig("funnels", funnels)
 
 	if err != nil {
