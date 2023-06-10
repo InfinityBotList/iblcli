@@ -37,18 +37,23 @@ var rust = map[string][]action{
 		{
 			Name: "Check compilers",
 			Func: func(cfg types.BuildPackage) error {
+				var cmds []string
+
 				if runtime.GOARCH == "amd64" {
-					// Assume correct compiler, not cross compiling release
-					fmt.Print(ui.YellowText("Not cross compiling release, skipping compiler check"))
-					return nil
+					cmds = []string{
+						"rustc",
+						"cargo",
+					}
+				} else {
+					cmds = []string{
+						"rustc",
+						"cargo",
+						"x86_64-linux-gnu-gcc",
+						"x86_64-unknown-linux-gnu-gcc",
+					}
 				}
 
-				for _, cmd := range []string{
-					"rustc",
-					"cargo",
-					"x86_64-linux-gnu-gcc",
-					"x86_64-unknown-linux-gnu-gcc",
-				} {
+				for _, cmd := range cmds {
 					// Ensure these commands exist
 					fmt.Print("=> ", cmd)
 
@@ -60,39 +65,6 @@ var rust = map[string][]action{
 					}
 
 					fmt.Print(ui.GreenText(" OK (" + cmdExec.Path + ")"))
-				}
-
-				return nil
-			},
-		},
-		{
-			Name: "Setup environment",
-			Func: func(cfg types.BuildPackage) error {
-				if len(cfg.Env) == 0 {
-					fmt.Print(ui.YellowText("No environment variables to set, skipping"))
-					return nil
-				}
-
-				envFile, err := setEnv(cfg.Env)
-
-				if err != nil {
-					return err
-				}
-
-				// Create .env file if it doesn't exist
-				f, err := os.Create(".env")
-
-				if err != nil {
-					return errors.Wrap(err, "failed to create .env file")
-				}
-
-				defer f.Close()
-
-				// Write envfile to .env
-				_, err = f.WriteString(strings.Join(envFile, "\n"))
-
-				if err != nil {
-					return errors.Wrap(err, "failed to write envfile to .env file")
 				}
 
 				return nil
@@ -201,23 +173,10 @@ var rust = map[string][]action{
 		},
 	},
 	"deploy": {
-		{
-			Name: "Stop existing service",
-			Func: func(cfg types.BuildPackage) error {
-				sshCmd := exec.Command("ssh", links.GetVpsSSH(), "sudo", "systemctl", "stop", cfg.Service)
+		// stop the service
+		commonStopExistingService,
 
-				sshCmd.Stdout = os.Stdout
-				sshCmd.Stderr = os.Stderr
-
-				if err := sshCmd.Run(); err != nil {
-					return errors.Wrap(err, "failed to stop service")
-				}
-
-				fmt.Print(ui.GreenText("Successfully stopped service"))
-
-				return nil
-			},
-		},
+		// Rust specific, location of binary differs between languages
 		{
 			Name: "Copy binary to server",
 			Func: func(cfg types.BuildPackage) error {
@@ -236,23 +195,9 @@ var rust = map[string][]action{
 				return nil
 			},
 		},
-		{
-			Name: "Start service",
-			Func: func(cfg types.BuildPackage) error {
-				sshCmd := exec.Command("ssh", links.GetVpsSSH(), "sudo", "systemctl", "start", cfg.Service)
+		commonStartService,
 
-				sshCmd.Stdout = os.Stdout
-				sshCmd.Stderr = os.Stderr
-
-				if err := sshCmd.Run(); err != nil {
-					return errors.Wrap(err, "failed to start service")
-				}
-
-				fmt.Print(ui.GreenText("Successfully started service"))
-
-				return nil
-			},
-		},
+		// Rust specific, generation and copying of bindings is specific to Rust
 		{
 			Name: "Copy bindings",
 			Func: func(cfg types.BuildPackage) error {

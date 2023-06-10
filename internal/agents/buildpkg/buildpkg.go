@@ -3,6 +3,7 @@ package buildpkg
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
@@ -57,7 +58,8 @@ func getTarget() string {
 
 var Actions = map[string]map[string][]action{
 	"rust":  rust,
-	"dummy": {},
+	"go":    golang,
+	"dummy": dummy,
 }
 
 func LoadPackage() (*types.BuildPackage, error) {
@@ -147,6 +149,33 @@ func Enter(cfg types.BuildPackage, arg string) error {
 
 	if len(actions) == 0 {
 		return errors.New("No actions found for " + arg)
+	}
+
+	if len(cfg.Env) > 0 {
+		// Setup env, this is a core task
+		fmt.Print(ui.BoldText("[CORE] Setting up environment"))
+
+		envFile, err := setEnv(cfg.Env)
+
+		if err != nil {
+			return err
+		}
+
+		// Create .env file if it doesn't exist
+		f, err := os.Create(".env")
+
+		if err != nil {
+			return errors.Wrap(err, "failed to create .env file")
+		}
+
+		defer f.Close()
+
+		// Write envfile to .env
+		_, err = f.WriteString(strings.Join(envFile, "\n"))
+
+		if err != nil {
+			return errors.Wrap(err, "failed to write envfile to .env file")
+		}
 	}
 
 	for i, a := range actions {
