@@ -14,14 +14,9 @@ import (
 	"github.com/InfinityBotList/ibl/types/popltypes"
 	"github.com/infinitybotlist/eureka/dovewing"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
-func UserEntitySelector(auth popltypes.TestAuth, supportedTargetTypes []types.TargetType) (*types.Entity, error) {
-	if len(supportedTargetTypes) == 0 {
-		return nil, errors.New("userEntitySelector caller error: no supported target types")
-	}
-
+func UserEntitySelector(auth popltypes.TestAuth, filter func(e types.Entity) bool) (*types.Entity, error) {
 	if auth.AuthType != types.TargetTypeUser {
 		return nil, errors.New("not logged in as a user")
 	}
@@ -44,24 +39,28 @@ func UserEntitySelector(auth popltypes.TestAuth, supportedTargetTypes []types.Ta
 	var entities []types.Entity
 
 	// #1 - Bots
-	if slices.Contains(supportedTargetTypes, types.TargetTypeBot) {
-		for _, bot := range user.UserBots {
-			entities = append(entities, types.Entity{
-				ID:         bot.User.ID,
-				Name:       bot.User.Username,
-				TargetType: types.TargetTypeBot,
-			})
-		}
+	for _, bot := range user.UserBots {
+		entities = append(entities, types.Entity{
+			ID:         bot.User.ID,
+			Name:       bot.User.Username,
+			TargetType: types.TargetTypeBot,
+		})
 	}
 
 	// #2 - Teams (not all apis support teams yet!)
-	if slices.Contains(supportedTargetTypes, types.TargetTypeTeam) {
-		for _, team := range user.UserTeams {
-			entities = append(entities, types.Entity{
-				ID:         team.ID,
-				Name:       team.Name,
-				TargetType: types.TargetTypeTeam,
-			})
+	for _, team := range user.UserTeams {
+		entities = append(entities, types.Entity{
+			ID:         team.ID,
+			Name:       team.Name,
+			TargetType: types.TargetTypeTeam,
+		})
+	}
+
+	// Filter the entities
+	for i := 0; i < len(entities); i++ {
+		if !filter(entities[i]) {
+			entities = append(entities[:i], entities[i+1:]...)
+			i--
 		}
 	}
 

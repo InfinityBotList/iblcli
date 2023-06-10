@@ -171,9 +171,8 @@ func newFunnel(u popltypes.TestAuth, funnels *types.FunnelList) error {
 		return errors.New("please set a port and webhook domain ('P' and 'D') before adding a funnel")
 	}
 
-	entity, err := views.UserEntitySelector(u, []types.TargetType{
-		types.TargetTypeBot,
-		// TODO: Add teams, once supported, here
+	entity, err := views.UserEntitySelector(u, func(e types.Entity) bool {
+		return e.TargetType != types.TargetTypeBot // Nothing else is supported yet, so...
 	})
 
 	if err != nil {
