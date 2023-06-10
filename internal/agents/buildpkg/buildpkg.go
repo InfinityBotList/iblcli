@@ -147,10 +147,6 @@ func Enter(cfg types.BuildPackage, arg string) error {
 		return errors.New("Unsupported action: " + arg)
 	}
 
-	if len(actions) == 0 {
-		return errors.New("No actions found for " + arg)
-	}
-
 	if len(cfg.Env) > 0 {
 		// Setup env, this is a core task
 		fmt.Print(ui.BoldText("[CORE] Setting up environment"))
