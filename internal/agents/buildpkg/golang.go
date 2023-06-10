@@ -58,6 +58,8 @@ var golang = map[string][]action{
 			Func: func(cfg types.BuildPackage) error {
 				env := map[string]string{
 					"CGO_ENABLED": "0",
+					"GOOS":        "linux",
+					"GOARCH":      "amd64",
 				}
 
 				_, err := setEnv(env)
@@ -79,7 +81,7 @@ var golang = map[string][]action{
 					return errors.Wrap(err, "Failed to build package")
 				}
 
-				fmt.Print(ui.GreenText(" OK"))
+				fmt.Print(ui.GreenText("...built successfully"))
 
 				return nil
 			},
