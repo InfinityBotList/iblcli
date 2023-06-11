@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -25,13 +24,16 @@ import (
 type iLogin struct {
 	code  string
 	state string
+	err   error
 }
 
 var loginCh = make(chan iLogin)
 
-func init() {
+// WebAuthUser performs a web-based OAuth2 login for users
+func WebAuthUser() (string, string, error) {
 	// Load login webserver
-	http.HandleFunc("/auth/sauron", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/auth/sauron", func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
 		state := r.URL.Query().Get("state")
 
@@ -42,10 +44,7 @@ func init() {
 			state: state,
 		}
 	})
-}
 
-// WebAuthUser performs a web-based OAuth2 login for users
-func WebAuthUser() (string, string, error) {
 	resp, err := api.NewReq().Get("list/oauth2").Do()
 
 	if err != nil {
@@ -62,12 +61,17 @@ func WebAuthUser() (string, string, error) {
 	}
 
 	// Open a http server on port 3000
-	srv := &http.Server{Addr: ":3000"}
+	srv := &http.Server{Addr: ":3000", Handler: mux}
 
 	go func() {
 		err := srv.ListenAndServe()
 		if err != http.ErrServerClosed {
-			log.Fatal(err)
+			loginCh <- iLogin{
+				code:  "",
+				state: "",
+				err:   err,
+			}
+			return
 		}
 	}()
 
@@ -81,6 +85,11 @@ func WebAuthUser() (string, string, error) {
 
 	// Wait for login
 	login := <-loginCh
+
+	if login.err != nil {
+		time.Sleep(1 * time.Second)
+		return "", "", errors.New("error occurred while waiting for login: " + login.err.Error())
+	}
 
 	if os.Getenv("DEBUG") == "true" {
 		fmt.Println("Logging in: code="+login.code, "| state="+login.state)

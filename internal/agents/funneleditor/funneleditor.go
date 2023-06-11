@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibl/internal/agents/webhookpatcher"
 	"github.com/InfinityBotList/ibl/internal/config"
 	"github.com/InfinityBotList/ibl/internal/input"
 	"github.com/InfinityBotList/ibl/internal/ui"
@@ -179,64 +179,54 @@ func newFunnel(u popltypes.TestAuth, funnels *types.FunnelList) error {
 		return err
 	}
 
+	fmt.Println(`
+Next, please type where you would like for the webhook to be forwarded to.
+
+exec:PATH -> Execute a script on your filesystem. The environment variable "DATA" will be set to the webhook data
+port:PORTNUMBER -> An http server running on a port on your system. Note that for port, a path can also be specified, as follows: port:PORTNUMBER/PATH
+
+-- Note that exec is the recommended option for most users, as it is the most secure --`)
+
 	forwardTo := input.GetInput("Forward to?", func(s string) bool {
-		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+		if strings.HasPrefix(s, "port:") {
+			inp := input.GetInput(ui.BoldText("WARNING: Using port forwarding is insecure if 0.0.0.0 is used as bind address etc. Using exec is much safer. Do you still want to continue? (yes/no)"), func(s string) bool {
+				if s == "yes" || s == "no" {
+					return true
+				}
+
+				fmt.Print(ui.RedText("Invalid option"))
+				return false
+			})
+
+			return inp != "no"
+		} else if strings.HasPrefix(s, "exec:") {
 			return true
 		}
 
-		fmt.Print(ui.RedText("Invalid domain. Must start with http:// or https://"))
+		fmt.Print(ui.RedText("Invalid forward, you must use either port: or exec:"))
 		return false
 	})
 
-	// Fetch entity
-	switch entity.TargetType {
-	case types.TargetTypeBot:
-		fmt.Print("Adding ", ui.BoldText(entity.Name+" ["+entity.ID+"]"))
-		fmt.Print(ui.BlueText("Updating webhook configuration for this bot..."))
+	endpointId := crypto.RandString(32)
+	webhookSecret := crypto.RandString(128)
 
-		endpointId := crypto.RandString(32)
-		webhookSecret := crypto.RandString(128)
+	// Add to funnels
+	fmt.Print("Adding ", ui.BoldText(entity.Name+" ["+entity.ID+"]"))
+	funnels.Funnels = append(funnels.Funnels, types.WebhookFunnel{
+		TargetType:    entity.TargetType,
+		TargetID:      entity.ID,
+		WebhookSecret: webhookSecret,
+		EndpointID:    endpointId,
+		Forward:       forwardTo,
+	})
 
-		fmt.Print(ui.BlueText("Domain: " + funnels.Domain + "/funnel?id=" + endpointId))
+	err = webhookpatcher.PatchWebhooks(funnels, u)
 
-		tBool := true
-
-		pw := popltypes.PatchBotWebhook{
-			WebhookURL:    funnels.Domain + "/?id=" + endpointId,
-			WebhookSecret: webhookSecret,
-			WebhooksV2:    &tBool,
-		}
-
-		// /users/{uid}/bots/{bid}/webhook
-		resp, err := api.NewReq().Patch("users/" + u.TargetID + "/bots/" + entity.ID + "/webhook").Auth(u.Token).Json(pw).Do()
-
-		if err != nil {
-			return errors.New("error occurred while updating webhook: " + err.Error())
-		}
-
-		if resp.Response.StatusCode != 204 {
-			body, err := resp.Body()
-
-			if err != nil {
-				return errors.New("error occurred while parsing error when updating webhook: " + err.Error())
-			}
-
-			return errors.New("error occurred while updating webhook: " + string(body))
-		}
-
-		// Add to funnels
-		funnels.Funnels = append(funnels.Funnels, types.WebhookFunnel{
-			TargetType:    entity.TargetType,
-			TargetID:      entity.ID,
-			WebhookSecret: webhookSecret,
-			EndpointID:    endpointId,
-			Forward:       forwardTo,
-		})
-
-		return nil
-	default:
-		return errors.New("target type does not support webhook funnels")
+	if err != nil {
+		return errors.New("error patching webhooks: " + err.Error())
 	}
+
+	return nil
 }
 
 func deleteFunnel(_ popltypes.TestAuth, funnels *types.FunnelList) error {

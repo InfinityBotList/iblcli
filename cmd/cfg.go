@@ -8,19 +8,20 @@ import (
 	"os"
 
 	"github.com/InfinityBotList/ibl/internal/config"
-	"github.com/InfinityBotList/ibl/internal/login"
 	"github.com/InfinityBotList/ibl/internal/ui"
+	"github.com/InfinityBotList/ibl/internal/views"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
 var loginCmd = &cobra.Command{
-	Use:     "login",
+	Use:     "login TYPE",
 	Short:   "Login to the IBL API",
 	Long:    `Login to the IBL API using a bot/user/server token.`,
 	Aliases: []string{"auth", "a", "l"},
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		_, err := login.LoginUser("")
+		_, err := views.AccountSwitcher(args[0])
 
 		if err != nil {
 			fmt.Print(ui.RedText("Error logging in: " + err.Error()))

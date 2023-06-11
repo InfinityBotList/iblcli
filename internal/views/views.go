@@ -104,7 +104,7 @@ func AccountSwitcher(authType string) (*popltypes.TestAuth, error) {
 	forceRetryLogin := false
 	for {
 		var a *popltypes.TestAuth
-		err := config.LoadConfig("auth@user", &a)
+		err := config.LoadConfig("auth@"+authType, &a)
 
 		if err != nil || a == nil || a.TargetID == "" || forceRetryLogin {
 			if !forceRetryLogin {

@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.27.1
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-playground/validator/v10 v10.12.0
 	github.com/jackc/pgtype v1.13.0
 	github.com/jackc/pgx/v4 v4.17.2
@@ -20,7 +21,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/getkin/kin-openapi v0.115.0 // indirect
-	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
