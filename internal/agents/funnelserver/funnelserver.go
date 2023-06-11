@@ -53,6 +53,11 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 		action := forwardSplit[0]
 		data := strings.Join(forwardSplit[1:], ":")
 
+		if action != "port" && action != "exec" {
+			fmt.Println(ui.RedText("Invalid forward: " + funnel.Forward))
+			os.Exit(1)
+		}
+
 		fc[funnel.EndpointID] = funnelCache{
 			action: action,
 			data:   data,
