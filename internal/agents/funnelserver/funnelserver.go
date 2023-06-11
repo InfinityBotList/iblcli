@@ -276,7 +276,9 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			cmd := exec.CommandContext(ctx, fcData.data)
+			cmd := exec.CommandContext(ctx, fcData.data, "")
+
+			cmd.Env = append(os.Environ(), "DATA="+hex.EncodeToString(plaintext))
 
 			out, err := cmd.CombinedOutput()
 
