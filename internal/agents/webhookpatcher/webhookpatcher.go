@@ -44,6 +44,28 @@ func PatchWebhooks(funnels *types.FunnelList, u popltypes.TestAuth) error {
 
 				return errors.New("error occurred while updating webhook: " + string(body))
 			}
+		case types.TargetTypeTeam:
+			pw := popltypes.PatchTeamWebhook{
+				WebhookURL:    url,
+				WebhookSecret: funnel.WebhookSecret,
+			}
+
+			// /users/{uid}/teams/{tid}/webhook
+			resp, err := api.NewReq().Patch("users/" + u.TargetID + "/teams/" + funnel.TargetID + "/webhook").Auth(u.Token).Json(pw).Do()
+
+			if err != nil {
+				return errors.New("error occurred while updating webhook: " + err.Error())
+			}
+
+			if resp.Response.StatusCode != 204 {
+				body, err := resp.Body()
+
+				if err != nil {
+					return errors.New("error occurred while parsing error when updating webhook: " + err.Error())
+				}
+
+				return errors.New("error occurred while updating webhook: " + string(body))
+			}
 		default:
 			return errors.New("target type does not support webhook funnels")
 		}
