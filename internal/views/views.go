@@ -126,7 +126,7 @@ func AccountSwitcher(authType string) (*popltypes.TestAuth, error) {
 			return nil, errors.Wrap(err, "error getting user")
 		}
 
-		var user dovewing.DiscordUser
+		var user dovewing.PlatformUser
 
 		err = res.JsonOk(&user)
 
