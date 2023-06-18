@@ -12,8 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const DefaultTarget = "x86_64-unknown-linux-gnu"
-
 var rootValidator *validator.Validate
 
 // Internal struct
@@ -43,17 +41,6 @@ func setEnv(env map[string]string) (envFile []string, err error) {
 	}
 
 	return envFile, nil
-}
-
-func getTarget() string {
-	var target string
-	if os.Getenv("TARGET") != "" {
-		target = os.Getenv("TARGET")
-	} else {
-		target = DefaultTarget
-	}
-
-	return target
 }
 
 var Actions = map[string]map[string][]action{

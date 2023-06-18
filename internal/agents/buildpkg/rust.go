@@ -14,6 +14,19 @@ import (
 	"github.com/InfinityBotList/ibl/types"
 )
 
+func getTarget() string {
+	var target string
+	if os.Getenv("TARGET") != "" {
+		target = os.Getenv("TARGET")
+	} else {
+		target = DefaultTarget
+	}
+
+	return target
+}
+
+const DefaultTarget = "x86_64-unknown-linux-gnu"
+
 var rust = map[string][]action{
 	"build": {
 		{
@@ -37,20 +50,9 @@ var rust = map[string][]action{
 		{
 			Name: "Check compilers",
 			Func: func(cfg types.BuildPackage) error {
-				var cmds []string
-
-				if runtime.GOARCH == "amd64" {
-					cmds = []string{
-						"rustc",
-						"cargo",
-					}
-				} else {
-					cmds = []string{
-						"rustc",
-						"cargo",
-						"x86_64-linux-gnu-gcc",
-						"x86_64-unknown-linux-gnu-gcc",
-					}
+				cmds := []string{
+					"rustc",
+					"cargo",
 				}
 
 				for _, cmd := range cmds {
@@ -84,7 +86,7 @@ var rust = map[string][]action{
 					target := getTarget()
 					// Set cross compiler env
 					env["CARGO_TARGET_GNU_LINKER"] = target + "-gcc"
-					env["CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER"] = target + "-gcc"
+					env["CARGO_TARGET_"+strings.ToUpper(strings.ReplaceAll(target, "-", "_"))+"_LINKER"] = target + "-gcc"
 
 					args = []string{
 						"cargo",
