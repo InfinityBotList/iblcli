@@ -26,6 +26,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+type secret struct {
+	Raw string
+}
+
+func (s secret) Sign(data []byte) string {
+	h := hmac.New(sha512.New, []byte(s.Raw))
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 const webhookProtocol = "splashtail"
 
 type funnelCache struct {
@@ -82,6 +92,7 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 		for _, f := range funnels.Funnels {
 			if f.EndpointID == id {
 				funnel = &f
+				break
 			}
 		}
 
@@ -131,17 +142,11 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 			return
 		}
 
-		wsh := hmac.New(sha512.New, []byte(funnel.WebhookSecret))
-		wsh.Write(body)
-		signedBody := hex.EncodeToString(wsh.Sum(nil))
+		tok1 := secret{Raw: funnel.WebhookSecret}.Sign(body)
+		finalToken := secret{Raw: nonce}.Sign([]byte(tok1))
 
-		// Create expectedTok using signedBody and nonce
-		nsh := hmac.New(sha512.New, []byte(nonce))
-		nsh.Write([]byte(signedBody))
-		expectedTok := hex.EncodeToString(nsh.Sum(nil))
-
-		if sig != expectedTok {
-			fmt.Println("expected:", expectedTok, "| got:", sig)
+		if sig != finalToken {
+			fmt.Println("expected:", finalToken, "| got:", sig)
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("Invalid signature"))
 			return
@@ -197,8 +202,6 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 			w.Write([]byte("Could not open gcm"))
 			return
 		}
-
-		fmt.Println(string(plaintext))
 
 		// Check funnel forward
 		fcData, ok := fc[funnel.EndpointID]
@@ -291,6 +294,7 @@ func StartServer(funnels *types.FunnelList, u popltypes.TestAuth) {
 					return
 				}
 
+				fmt.Println(string(out))
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
