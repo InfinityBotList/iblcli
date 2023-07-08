@@ -3,7 +3,7 @@ package popltypes
 import (
 	"time"
 
-	"github.com/infinitybotlist/eureka/dovewing"
+	"github.com/infinitybotlist/eureka/dovewing/dovetypes"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -21,13 +21,13 @@ type Team struct {
 	Name     string       `db:"name" json:"name"`
 	Avatar   string       `db:"avatar" json:"avatar"`
 	Members  []TeamMember `db:"-" json:"members"`
-	UserBots []UserBot    `json:"user_bots"` // Bots that are owned by the team
+	UserBots []IndexBot   `json:"user_bots"` // Bots that are owned by the team
 }
 
 type TeamMember struct {
-	User      *dovewing.PlatformUser `json:"user"`
-	Perms     []TeamPermission       `json:"perms"`
-	CreatedAt time.Time              `json:"created_at"`
+	User      *dovetypes.PlatformUser `json:"user"`
+	Perms     []TeamPermission        `json:"perms"`
+	CreatedAt time.Time               `json:"created_at"`
 }
 
 type CreateTeam struct {

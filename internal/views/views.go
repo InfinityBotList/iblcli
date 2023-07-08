@@ -12,7 +12,7 @@ import (
 	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/InfinityBotList/ibl/types/popltypes"
-	"github.com/infinitybotlist/eureka/dovewing"
+	"github.com/infinitybotlist/eureka/dovewing/dovetypes"
 	"github.com/pkg/errors"
 )
 
@@ -120,13 +120,13 @@ func AccountSwitcher(authType string) (*popltypes.TestAuth, error) {
 			a = auth
 		}
 
-		res, err := api.NewReq().Get("_duser/" + a.TargetID).Do()
+		res, err := api.NewReq().Get("platform/user/" + a.TargetID + "?platform=discord").Do()
 
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting user")
 		}
 
-		var user dovewing.PlatformUser
+		var user dovetypes.PlatformUser
 
 		err = res.JsonOk(&user)
 
