@@ -12,9 +12,16 @@ import (
 
 const (
 	APIUrl = "https://spider.infinitybots.gg"
+	StagingAPIUrl = "https://spider-staging.infinitybots.gg"
 )
 
 var ClientURL = APIUrl
+
+func init() {
+	if os.Getenv("STAGING_API") == "true" {
+		ClientURL = StagingAPIUrl
+	}
+}
 
 // Makes a request to the API
 func request(method string, path string, jsonP any, headers map[string]string) (*ClientResponse, error) {
