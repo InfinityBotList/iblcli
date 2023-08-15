@@ -44,6 +44,8 @@ var proxyCmd = &cobra.Command{
 			os.Setenv("OUTBOUND_IP", oip)
 		}
 
+		os.Setenv("METRICS_PORT", "3844")
+
 		if os.Getenv("OUTBOUND_IP") == "" {
 			// Get the anchor URL from DO
 			resp, err := http.Get("http://169.254.169.254/metadata/v1/interfaces/public/0/anchor_ipv4/address")
