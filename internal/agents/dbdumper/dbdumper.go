@@ -18,6 +18,7 @@ func IsSecret(tableName, columnName string) bool {
 		{"*", "webhook"},
 		{"*", "web_auth"},
 		{"*", "unique_clicks"},
+		{"server", "invite"},
 	}
 
 	for _, col := range secretCols {
