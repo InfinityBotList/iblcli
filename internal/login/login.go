@@ -111,6 +111,7 @@ func WebAuthUser() (string, string, error) {
 		ClientID:    oauth2Data.ClientID,
 		Code:        login.code,
 		Scope:       "external_auth",
+		Protocol:    "persepolis",
 		RedirectURI: "http://localhost:3000/auth/sauron",
 	}).Do()
 
