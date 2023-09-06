@@ -183,7 +183,7 @@ var rust = map[string][]action{
 			Name: "Copy binary to server",
 			Func: func(cfg types.BuildPackage) error {
 				target := getTarget()
-				sshCmd := exec.Command("scp", "target/"+target+"/release/"+cfg.Binary, links.GetVpsSSH()+":~/"+cfg.Project+"/"+cfg.Binary)
+				sshCmd := exec.Command("scp", "target/"+target+"/release/"+cfg.Binary, links.GetVpsSSH()+":/home/"+cfg.User+"/"+cfg.Project+"/"+cfg.Binary)
 
 				sshCmd.Stdout = os.Stdout
 				sshCmd.Stderr = os.Stderr
@@ -197,6 +197,8 @@ var rust = map[string][]action{
 				return nil
 			},
 		},
+
+		ensureOwnership,
 		commonStartService,
 
 		// Rust specific, generation and copying of bindings is specific to Rust

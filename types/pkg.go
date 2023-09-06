@@ -8,6 +8,7 @@ type BuildPackage struct {
 	Env        map[string]string       `yaml:"env"`                                 // The default env to use                           // Environment variables
 
 	// Common flags
+	User string `yaml:"user" validate:"required"` // Which user account the project is under
 	Project string `yaml:"project" validate:"required"` // Name of the project
 	Binary  string `yaml:"binary" validate:"required"`  // Name of the binary
 	Service string `yaml:"service"`                     // Name of the service

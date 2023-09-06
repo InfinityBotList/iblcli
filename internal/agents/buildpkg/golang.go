@@ -95,7 +95,7 @@ var golang = map[string][]action{
 		{
 			Name: "Copy binary to server",
 			Func: func(cfg types.BuildPackage) error {
-				sshCmd := exec.Command("scp", cfg.Binary, links.GetVpsSSH()+":~/"+cfg.Project+"/"+cfg.Binary)
+				sshCmd := exec.Command("scp", cfg.Binary, links.GetVpsSSH()+":/home/"+cfg.User+"/"+cfg.Project+"/"+cfg.Binary)
 
 				sshCmd.Stdout = os.Stdout
 				sshCmd.Stderr = os.Stderr
@@ -109,6 +109,7 @@ var golang = map[string][]action{
 				return nil
 			},
 		},
+		ensureOwnership,
 		commonStartService,
 	},
 }

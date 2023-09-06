@@ -49,3 +49,22 @@ var commonStartService = action{
 		return nil
 	},
 }
+
+// Ensures ownership
+var ensureOwnership = action{
+	Name: "Ensure user:group ownership",
+	Func: func(cfg types.BuildPackage) error {
+		sshCmd := exec.Command("ssh", links.GetVpsSSH(), "chown", "-Rv", cfg.User+":"+cfg.User, "/home/"+cfg.User+"/"+cfg.Project)
+
+		sshCmd.Stdout = os.Stdout
+		sshCmd.Stderr = os.Stderr
+
+		if err := sshCmd.Run(); err != nil {
+			return errors.Wrap(err, "failed to ensure ownership")
+		}
+
+		fmt.Print(ui.GreenText("Successfully ensured ownership"))
+
+		return nil
+	},
+}
