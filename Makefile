@@ -13,8 +13,8 @@ COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/am
 
 all:
 	CGO_ENABLED=0 go build -v $(GOFLAGS_DBG)
-install:
-	make && cp -rf ibl /usr/bin/ibl
+install: all
+	cp -rf ibl /usr/bin/ibl
 publish:
 	mkdir -p bin
 
