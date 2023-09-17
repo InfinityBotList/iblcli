@@ -40,21 +40,14 @@ var copyDb = &cobra.Command{
 
 		fmt.Println("Creating database backup as schema.sql")
 
-		backupCmd := exec.Command("pg_dump", "-Fc", "--no-owner", "-d", "infinity", "-f", "work/schema.sql")
+		backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity", "-f", "work/schema.sql")
 
 		backupCmd.Env = dbcommon.CreateEnv()
 
 		err = backupCmd.Run()
 
 		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		err = backupCmd.Run()
-
-		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Error when creating db backup", err)
 			return
 		}
 
@@ -72,40 +65,72 @@ var copyDb = &cobra.Command{
 		fmt.Println("Restoring database on target server")
 
 		cmds := [][]string{
-			{
-				"psql", "-c", "DROP DATABASE IF EXISTS infinity_bak",
+			/*{
+				"psql", "-c", "'DROP ROLE IF EXISTS enfinity'",
 			},
 			{
-				"psql", "-c", "CREATE DATABASE infinity_bak",
+				"psql", "-c", "'DROP ROLE IF EXISTS infinity'",
 			},
 			{
-				"pg_restore", "-d", "infinity_bak", "-c", "/tmp/schema.sql",
+				"psql", "-c", "'CREATE ROLE enfinity'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "UPDATE users SET api_token = uuid_generate_v4()",
+				"psql", "-c", "'ALTER ROLE enfinity WITH LOGIN'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "UPDATE bots SET api_token = uuid_generate_v4()",
+				"psql", "-c", "'CREATE ROLE infinity'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "UPDATE servers SET api_token = uuid_generate_v4()",
+				"psql", "-c", "'ALTER ROLE infinity WITH LOGIN'",
+			},*/
+			{
+				"psql", "-c", "'DROP DATABASE IF EXISTS infinity_bak'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "ALTER DATABASE infinity RENAME TO infinity_old",
+				"psql", "-c", "'CREATE DATABASE infinity_bak'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "ALTER DATABASE infinity_bak RENAME TO infinity",
+				"psql", "-d", "infinity_bak", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
 			},
 			{
-				"psql", "-d", "infinity", "-c", "DROP DATABASE IF EXISTS infinity_old",
+				"psql", "-d", "infinity_bak", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
+			},
+			{
+				"pg_restore", "-d", "infinity_bak", "/tmp/schema.sql",
+			},
+			{
+				"psql", "-d", "infinity_bak", "-c", "'UPDATE webhooks SET secret = uuid_generate_v4()::text'",
+			},
+			{
+				"psql", "-d", "infinity_bak", "-c", "'UPDATE users SET api_token = uuid_generate_v4()::text'",
+			},
+			{
+				"psql", "-d", "infinity_bak", "-c", "'UPDATE bots SET api_token = uuid_generate_v4()::text'",
+			},
+			{
+				"psql", "-d", "infinity_bak", "-c", "'UPDATE servers SET api_token = uuid_generate_v4()::text'",
+			},
+			{
+				"psql", "-d", "infinity", "-c", "'DROP DATABASE IF EXISTS infinity_old'",
+			},
+			{
+				"psql", "-d", "infinity_bak", "-c", "'ALTER DATABASE infinity RENAME TO infinity_old'",
+			},
+			{
+				"psql", "-c", "'ALTER DATABASE infinity_bak RENAME TO infinity'",
+			},
+			{
+				"psql", "-d", "infinity", "-c", "'DROP DATABASE IF EXISTS infinity_old'",
 			},
 		}
 
 		for _, c := range cmds {
 			fmt.Println("=>", strings.Join(c, " "))
 
-			cmd := exec.Command("ssh", args[0], "-c", strings.Join(c, " "))
+			cmd := exec.Command("ssh", args[0], strings.Join(c, " "))
 
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 			cmd.Env = os.Environ()
 
 			err = cmd.Run()
@@ -120,9 +145,9 @@ var copyDb = &cobra.Command{
 
 // dbCmd represents the db command
 var dbCmd = &cobra.Command{
-	Use:   "admin",
-	Short: "Admin operations",
-	Long:  `Admin operations`,
+	Use:   "db",
+	Short: "DB operations",
+	Long:  `DB operations`,
 }
 
 func init() {
