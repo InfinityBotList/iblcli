@@ -1,4 +1,4 @@
-package dbdumper
+package dbparser
 
 import (
 	"context"

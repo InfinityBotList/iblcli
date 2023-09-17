@@ -15,7 +15,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/agents/dbdumper"
+	"github.com/InfinityBotList/ibl/internal/agents/dbcommon"
+	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
 	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/downloader"
 	"github.com/InfinityBotList/ibl/internal/links"
@@ -37,22 +38,6 @@ type Meta struct {
 type SourceParsed struct {
 	Data  map[string]any
 	Table string
-}
-
-// Creates a env based on os.Environ()
-func createEnv() []string {
-	var env []string = make([]string, 0)
-	if os.Getenv("PGDATABASE") != "" {
-		env = append(env, "PGDATABASE="+os.Getenv("PGDATABASE"))
-	} else {
-		env = append(env, "PGDATABASE=infinity")
-	}
-
-	if os.Getenv("PGUSER") != "" {
-		env = append(env, "PGUSER="+os.Getenv("PGUSER"))
-	}
-
-	return env
 }
 
 // Adds a buffer to a tar archive
@@ -120,7 +105,7 @@ var newCmd = &cobra.Command{
 
 		backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", "infinity", "-f", "work/schema.sql")
 
-		backupCmd.Env = createEnv()
+		backupCmd.Env = dbcommon.CreateEnv()
 
 		err = backupCmd.Run()
 
@@ -224,7 +209,7 @@ var newCmd = &cobra.Command{
 			return
 		}
 
-		schema, err := dbdumper.GetSchema(context.Background(), pool)
+		schema, err := dbparser.GetSchema(context.Background(), pool)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get schema for CI etc.:", err)
