@@ -65,24 +65,6 @@ var copyDb = &cobra.Command{
 		fmt.Println("Restoring database on target server")
 
 		cmds := [][]string{
-			/*{
-				"psql", "-c", "'DROP ROLE IF EXISTS enfinity'",
-			},
-			{
-				"psql", "-c", "'DROP ROLE IF EXISTS infinity'",
-			},
-			{
-				"psql", "-c", "'CREATE ROLE enfinity'",
-			},
-			{
-				"psql", "-c", "'ALTER ROLE enfinity WITH LOGIN'",
-			},
-			{
-				"psql", "-c", "'CREATE ROLE infinity'",
-			},
-			{
-				"psql", "-c", "'ALTER ROLE infinity WITH LOGIN'",
-			},*/
 			{
 				"psql", "-c", "'DROP DATABASE IF EXISTS infinity_bak'",
 			},
@@ -99,7 +81,7 @@ var copyDb = &cobra.Command{
 				"pg_restore", "-d", "infinity_bak", "/tmp/schema.sql",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "'UPDATE webhooks SET secret = uuid_generate_v4()::text'",
+				"psql", "-d", "infinity_bak", "-c", "'DELETE FROM webhooks'",
 			},
 			{
 				"psql", "-d", "infinity_bak", "-c", "'UPDATE users SET api_token = uuid_generate_v4()::text'",
@@ -121,6 +103,27 @@ var copyDb = &cobra.Command{
 			},
 			{
 				"psql", "-d", "infinity", "-c", "'DROP DATABASE IF EXISTS infinity_old'",
+			},
+			{
+				"pg_dump", "-Fc", "-d", "infinity", "-f", "/tmp/prod.sql",
+			},
+			{
+				"psql", "-c", "'DROP DATABASE IF EXISTS infinity__prodmarker'",
+			},
+			{
+				"psql", "-c", "'CREATE DATABASE infinity__prodmarker'",
+			},
+			{
+				"psql", "-d", "infinity__prodmarker", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
+			},
+			{
+				"psql", "-d", "infinity__prodmarker", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
+			},
+			{
+				"pg_restore", "-d", "infinity__prodmarker", "/tmp/prod.sql",
+			},
+			{
+				"rm", "/tmp/prod.sql", "/tmp/schema.sql",
 			},
 		}
 
