@@ -55,8 +55,8 @@ var genEnumsCmd = &cobra.Command{
 
 		teamPermEnumStr += "}"
 
-		// Save to /iblcdn/public/dev/bindings/popplio/team-perms.ts
-		f, err := os.Create("/iblcdn/public/dev/bindings/popplio/team-perms.ts")
+		// Save to /silverpelt/cdn/ibl/bindings/popplio/team-perms.ts
+		f, err := os.Create("/silverpelt/cdn/ibl/dev/bindings/popplio/team-perms.ts")
 
 		if err != nil {
 			fmt.Println("Error creating file:", err)

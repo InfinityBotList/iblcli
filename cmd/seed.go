@@ -234,7 +234,7 @@ var newCmd = &cobra.Command{
 		}
 
 		// Try to find seeds folder (devel assets server)
-		path := "/iblcdn/public/dev"
+		path := "/silverpelt/cdn/ibl/dev"
 		_, err = os.Stat(path)
 
 		if err == nil {
