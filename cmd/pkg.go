@@ -44,7 +44,7 @@ var pkgCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if proj.Pkg != nil {
+		if proj.Pkg == nil {
 			fmt.Print(ui.RedText("No pkg config found in project.yaml"))
 			os.Exit(1)
 		}

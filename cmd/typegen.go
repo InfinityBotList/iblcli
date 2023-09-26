@@ -102,7 +102,7 @@ var typegenCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if proj.TypeGen != nil {
+		if proj.TypeGen == nil {
 			fmt.Print(ui.RedText("No typegen config found in project.yaml"))
 			os.Exit(1)
 		}
