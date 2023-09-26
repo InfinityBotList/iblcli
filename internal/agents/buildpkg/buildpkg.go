@@ -5,14 +5,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/InfinityBotList/ibl/internal/projectconfig"
 	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
-	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
 )
-
-var rootValidator *validator.Validate
 
 // Internal struct
 type action struct {
@@ -49,35 +46,6 @@ var Actions = map[string]map[string][]action{
 	"dummy": dummy,
 }
 
-func LoadPackage() (*types.BuildPackage, error) {
-	// Open pkg.yaml
-	fmt.Print(ui.BoldText("[INIT] Opening pkg.yaml"))
-
-	bytes, err := os.ReadFile("pkg.yaml")
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse pkg.yaml
-	var pkg types.BuildPackage
-
-	err = yaml.Unmarshal(bytes, &pkg)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if the pkg is valid
-	err = rootValidator.Struct(pkg)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &pkg, nil
-}
-
 // Enter takes a package and runs a command on it
 func Enter(cfg types.BuildPackage, arg string) error {
 	cwd, err := os.Getwd()
@@ -98,14 +66,18 @@ func Enter(cfg types.BuildPackage, arg string) error {
 			}
 
 			// Load submodule
-			subPkg, err := LoadPackage()
+			subProj, err := projectconfig.LoadProjectConfig()
 
 			if err != nil {
 				return errors.Wrap(err, "Failed to load submodule")
 			}
 
+			if subProj.Pkg == nil {
+				return errors.New("Submodule package is nil")
+			}
+
 			// Run submodule
-			err = Enter(*subPkg, arg)
+			err = Enter(*subProj.Pkg, arg)
 
 			if err != nil {
 				return errors.Wrap(err, "Failed to build submodule")
@@ -174,8 +146,4 @@ func Enter(cfg types.BuildPackage, arg string) error {
 	}
 
 	return nil
-}
-
-func init() {
-	rootValidator = validator.New()
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/InfinityBotList/ibl/internal/agents/buildpkg"
 	"github.com/InfinityBotList/ibl/internal/devmode"
+	"github.com/InfinityBotList/ibl/internal/projectconfig"
 	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
@@ -36,14 +37,19 @@ var pkgCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		action := args[0]
 
-		pkg, err := buildpkg.LoadPackage()
+		proj, err := projectconfig.LoadProjectConfig()
 
 		if err != nil {
-			fmt.Print(ui.RedText("Failed to load package: " + err.Error()))
+			fmt.Print(ui.RedText("Failed to load project config: " + err.Error()))
 			os.Exit(1)
 		}
 
-		err = buildpkg.Enter(*pkg, action)
+		if proj.Pkg != nil {
+			fmt.Print(ui.RedText("No pkg config found in project.yaml"))
+			os.Exit(1)
+		}
+
+		err = buildpkg.Enter(*proj.Pkg, action)
 
 		if err != nil {
 			fmt.Print(ui.RedText(err.Error()))

@@ -11,8 +11,11 @@ import (
 
 	"github.com/InfinityBotList/ibl/internal/api"
 	"github.com/InfinityBotList/ibl/internal/devmode"
+	"github.com/InfinityBotList/ibl/internal/projectconfig"
+	"github.com/InfinityBotList/ibl/internal/ui"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 )
 
 type NginxFile struct {
@@ -92,16 +95,22 @@ var typegenCmd = &cobra.Command{
 	Short: "Generate typings for the frontend of IBL",
 	Long:  `Generate typings for the frontend of IBL.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var path = "src/utils/generated"
+		proj, err := projectconfig.LoadProjectConfig()
 
-		if os.Getenv("IBL_PATH") != "" {
-			path = os.Getenv("IBL_PATH")
+		if err != nil {
+			fmt.Print(ui.RedText("Failed to load project config: " + err.Error()))
+			os.Exit(1)
+		}
+
+		if proj.TypeGen != nil {
+			fmt.Print(ui.RedText("No typegen config found in project.yaml"))
+			os.Exit(1)
 		}
 
 		// Remove any existing src/utils/generated folder if it exists
-		os.RemoveAll(path)
+		os.RemoveAll(proj.TypeGen.Path)
 
-		os.MkdirAll(path, 0755)
+		os.MkdirAll(proj.TypeGen.Path, 0755)
 
 		api.ClientURL = "https://cdn.infinitybots.gg"
 
@@ -122,13 +131,15 @@ var typegenCmd = &cobra.Command{
 		}
 
 		for _, binding := range blist {
-			err := addTypings(path, "dev/bindings/"+binding.Name, binding.Name, func(name string) bool {
-				return strings.HasSuffix(name, ".ts")
-			})
+			if slices.Contains(proj.TypeGen.Projects, binding.Name) {
+				err := addTypings(proj.TypeGen.Path, "dev/bindings/"+binding.Name, binding.Name, func(name string) bool {
+					return strings.HasSuffix(name, ".ts")
+				})
 
-			if err != nil {
-				fmt.Println("Error with "+binding.Name, err)
-				return
+				if err != nil {
+					fmt.Println("Error with "+binding.Name, err)
+					return
+				}
 			}
 		}
 
