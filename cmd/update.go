@@ -27,7 +27,7 @@ var updateCmd = &cobra.Command{
 		force := cmd.Flag("force").Value.String()
 
 		// Check if an update is even required
-		updCheckUrl := links.GetCdnURL() + "/dev/" + ProjectName + "/current_rev"
+		updCheckUrl := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
 		currRev, err := downloader.DownloadFileWithProgress(updCheckUrl)
 
@@ -66,7 +66,7 @@ var updateCmd = &cobra.Command{
 			binFileName = "ibl.exe"
 		}
 
-		url := links.GetCdnURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
+		url := links.GetCdnURL() + "/dev/downloads" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
 		fmt.Println("Downloading latest version from:", url)
 
@@ -78,7 +78,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		if os.Getenv("NO_SHASUM") != "true" {
-			shasum := links.GetCdnURL() + "/dev/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
+			shasum := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
 
 			fmt.Println("Downloading shasum from:", shasum)
 

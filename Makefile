@@ -29,9 +29,10 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf /silverpelt/cdn/ibl/dev/iblcli /silverpelt/cdn/ibl/dev/shadowsight
-	mkdir -p /silverpelt/cdn/ibl/dev/iblcli
-	mv -vf bin/* /silverpelt/cdn/ibl/dev/iblcli
-	echo -n "$(BUILDREV)" > /silverpelt/cdn/ibl/dev/iblcli/current_rev
+	rm -rf /silverpelt/cdn/ibl/dev/downloads/iblcli /silverpelt/cdn/ibl/dev/downloads/shadowsight
+	mkdir -p /silverpelt/cdn/ibl/dev/downloads/iblcli
+	mv -vf bin/* /silverpelt/cdn/ibl/dev/downloads/iblcli
+	echo -n "$(BUILDREV)" > /silverpelt/cdn/ibl/dev/downloads/iblcli/current_rev
+	chown -Rv ibl:ibl /silverpelt/cdn/ibl/
 	rm -rf bin
 	

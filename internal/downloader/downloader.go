@@ -3,6 +3,7 @@ package downloader
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,6 +23,10 @@ func DownloadFileWithProgress(url string) ([]byte, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode >= 400 || resp.StatusCode < 200 {
+		return nil, errors.New("illegal status code: " + resp.Status)
 	}
 
 	defer resp.Body.Close()
