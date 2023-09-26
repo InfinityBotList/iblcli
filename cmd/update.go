@@ -26,6 +26,11 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		force := cmd.Flag("force").Value.String()
 
+		if ProjectName == "" {
+			fmt.Println("Cannot update self-compiled binary using auto-update [ProjectName not set]")
+			return
+		}
+
 		// Check if an update is even required
 		updCheckUrl := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
@@ -66,7 +71,7 @@ var updateCmd = &cobra.Command{
 			binFileName = "ibl.exe"
 		}
 
-		url := links.GetCdnURL() + "/dev/downloads" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
+		url := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
 		fmt.Println("Downloading latest version from:", url)
 
