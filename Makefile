@@ -29,7 +29,7 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf /silverpelt/cdn/dev/downloads/iblcli
+	rm -rf /silverpelt/cdn/ibl/dev/downloads/iblcli
 	mkdir -p /silverpelt/cdn/ibl/dev/downloads/iblcli
 	mv -vf bin/* /silverpelt/cdn/ibl/dev/downloads/iblcli
 	echo -n "$(BUILDREV)" > /silverpelt/cdn/ibl/dev/downloads/iblcli/current_rev
