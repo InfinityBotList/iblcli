@@ -237,16 +237,18 @@ var seedNewCmd = &cobra.Command{
 
 		if err == nil {
 			fmt.Println("Mpving seed to found folder: " + path)
-			err = os.Rename("work/seed.iblseed", path+"/seed.iblseed")
+			err = copyfile.CopyFile("work/seed.iblseed", path+"/seed.iblseed")
 
 			if err != nil {
 				fmt.Println("Failed to copy seed to devel assets server:", err)
+				return
 			}
 
 			err = copyfile.CopyFile("work/seed-ci.json", path+"/seed-ci.json")
 
 			if err != nil {
 				fmt.Println("Failed to copy seed to devel assets server:", err)
+				return
 			}
 		}
 	},
