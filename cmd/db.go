@@ -15,6 +15,7 @@ import (
 
 	"github.com/InfinityBotList/ibl/internal/agents/dbcommon"
 	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
+	"github.com/InfinityBotList/ibl/internal/copyfile"
 	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/downloader"
 	"github.com/InfinityBotList/ibl/internal/links"
@@ -242,7 +243,7 @@ var seedNewCmd = &cobra.Command{
 				fmt.Println("Failed to copy seed to devel assets server:", err)
 			}
 
-			err = os.Link("work/seed-ci.json", path+"/seed-ci.json")
+			err = copyfile.CopyFile("work/seed-ci.json", path+"/seed-ci.json")
 
 			if err != nil {
 				fmt.Println("Failed to copy seed to devel assets server:", err)
