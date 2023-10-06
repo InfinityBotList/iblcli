@@ -12,6 +12,8 @@ import (
 	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Does not include all keys sent by API, only ones we need
@@ -50,7 +52,7 @@ var genEnumsCmd = &cobra.Command{
 		teamPermEnumStr := "export enum TeamPermissions {\n"
 
 		for _, perm := range perms.Perms {
-			teamPermEnumStr += "	" + strings.ReplaceAll(perm.Name, " ", "") + " = \"" + perm.ID + "\", // " + perm.Desc + "\n"
+			teamPermEnumStr += "	" + cases.Title(language.AmericanEnglish).String(strings.ReplaceAll(perm.Name, " ", "")) + " = \"" + perm.ID + "\", // " + perm.Name + " => " + perm.Desc + "\n"
 		}
 
 		teamPermEnumStr += "}"

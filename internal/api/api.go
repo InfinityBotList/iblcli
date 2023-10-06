@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	APIUrl = "https://spider.infinitybots.gg"
+	APIUrl        = "https://spider.infinitybots.gg"
 	StagingAPIUrl = "https://spider-staging.infinitybots.gg"
 )
 
