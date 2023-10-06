@@ -49,10 +49,17 @@ var genEnumsCmd = &cobra.Command{
 			return
 		}
 
-		teamPermEnumStr := "export enum TeamPermissions {\n"
+		teamPermEnumStr := "export enum Permission {\n"
 
 		for _, perm := range perms.Perms {
-			teamPermEnumStr += "	" + cases.Title(language.AmericanEnglish).String(strings.ReplaceAll(perm.Name, " ", "")) + " = \"" + perm.ID + "\", // " + perm.Name + " => " + perm.Desc + "\n"
+			id := perm.ID
+			value := perm.ID
+
+			if value == "*" {
+				id = "Owner"
+			}
+
+			teamPermEnumStr += "	" + strings.ReplaceAll(cases.Title(language.AmericanEnglish).String(strings.ReplaceAll(id, "_", " ")), " ", "") + " = \"" + value + "\", // " + perm.Name + " => " + perm.Desc + "\n"
 		}
 
 		teamPermEnumStr += "}"
