@@ -33,6 +33,7 @@ publish:
 	mkdir -p /silverpelt/cdn/ibl/dev/downloads/iblcli
 	mv -vf bin/* /silverpelt/cdn/ibl/dev/downloads/iblcli
 	echo -n "$(BUILDREV)" > /silverpelt/cdn/ibl/dev/downloads/iblcli/current_rev
+	echo -n "Infinity Bot List Developer Client.\nThis is a developer only client for managing our infrastructure (databases etc.). You probably want IBLCLI instead" > /silverpelt/cdn/ibl/dev/downloads/iblcli/description
 	chown -Rv ibl:ibl /silverpelt/cdn/ibl/
 	rm -rf bin
 	
