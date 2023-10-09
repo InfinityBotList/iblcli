@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const seedApiVer = "frostpaw" // e means encryption protocol version
+const seedApiVer = "frostpaw-rev1" // e means encryption protocol version
 
 type Meta struct {
 	CreatedAt time.Time `json:"c"`
@@ -91,6 +91,14 @@ var seedNewCmd = &cobra.Command{
 			}
 		}()
 
+		if os.Getenv("ALLOW_ROOT") != "true" {
+			// Check if user is root
+			if os.Geteuid() == 0 {
+				fmt.Println("You must not run this command as root!")
+				return
+			}
+		}
+
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
@@ -129,6 +137,26 @@ var seedNewCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Failed to write metadata:", err)
 			return
+		}
+
+		// Create backup of some core tables
+		tables := []string{
+			"changelogs",
+		}
+		for i, table := range tables {
+			fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(tables), table)
+
+			// Create backup using pg_dump
+			backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "-t", table, "-f", fmt.Sprintf("work/%s.sql", table))
+
+			backupCmd.Env = dbcommon.CreateEnv()
+
+			err = backupCmd.Run()
+
+			if err != nil {
+				fmt.Println("Failed to create backup:", err)
+				return
+			}
 		}
 
 		// Create a tar file as a io.Writer, NOT a file
@@ -173,6 +201,35 @@ var seedNewCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Failed to write schema to tar file:", err)
 			return
+		}
+
+		// Write backup table assets to tar file
+		for _, table := range tables {
+			// Open backup file
+			backupFile, err := os.Open(fmt.Sprintf("work/%s.sql", table))
+
+			if err != nil {
+				fmt.Println("Failed to open backup file:", err)
+				return
+			}
+
+			// -- convert to bytes.Buffer
+			backupBuf := bytes.NewBuffer([]byte{})
+
+			_, err = backupBuf.ReadFrom(backupFile)
+
+			if err != nil {
+				fmt.Printf("Failed to read backup file file [%s] [error=%s]\n", table, err)
+				return
+			}
+
+			// Add to tar file
+			err = tarAddBuf(tarWriter, backupBuf, "backup/"+table)
+
+			if err != nil {
+				fmt.Println("Failed to write backup file to tar file:", err)
+				return
+			}
 		}
 
 		// Close tar file
@@ -260,13 +317,8 @@ var seedApplyCmd = &cobra.Command{
 	Short:   "Apply a seed to the database. You must specify either 'latest' or the path to a seed file.",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		var seedf *os.File
-		cleanup := func() {
+		defer func() {
 			fmt.Println("Cleaning up...")
-
-			if seedf != nil {
-				seedf.Close()
-			}
 
 			// delete all files in work directory
 			err := os.RemoveAll("work")
@@ -274,18 +326,17 @@ var seedApplyCmd = &cobra.Command{
 			if err != nil {
 				fmt.Println("Error cleaning up:", err)
 			}
-		}
-
-		cleanup()
+		}()
 
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
 		if err != nil {
 			fmt.Println("Error creating work directory", err)
-			cleanup()
 			return
 		}
+
+		var seedf *os.File
 
 		// Check args as to which file to use
 		seedFile := args[0]
@@ -298,7 +349,6 @@ var seedApplyCmd = &cobra.Command{
 
 			if err != nil {
 				fmt.Println("Failed to download seed file:", err)
-				cleanup()
 				return
 			}
 
@@ -307,7 +357,6 @@ var seedApplyCmd = &cobra.Command{
 
 			if err != nil {
 				fmt.Println("Failed to create temp file:", err)
-				cleanup()
 				return
 			}
 
@@ -317,7 +366,6 @@ var seedApplyCmd = &cobra.Command{
 
 			if err != nil {
 				fmt.Println("Failed to download seed file:", err)
-				cleanup()
 				return
 			}
 
@@ -329,7 +377,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to open seed file:", err)
-			cleanup()
 			return
 		}
 
@@ -341,7 +388,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to decompress seed file:", err)
-			cleanup()
 			return
 		}
 
@@ -365,7 +411,6 @@ var seedApplyCmd = &cobra.Command{
 
 			if err != nil {
 				fmt.Println("Failed to read tar file:", err)
-				cleanup()
 				return
 			}
 
@@ -376,7 +421,6 @@ var seedApplyCmd = &cobra.Command{
 
 			if err != nil {
 				fmt.Println("Failed to read tar file:", err)
-				cleanup()
 				return
 			}
 
@@ -391,7 +435,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if !ok {
 			fmt.Println("Seed file is corrupt [no meta]")
-			cleanup()
 			return
 		}
 
@@ -401,7 +444,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to unmarshal meta:", err)
-			cleanup()
 			return
 		}
 
@@ -415,7 +457,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if !ok {
 			fmt.Println("Seed file is corrupt [no schema]")
-			cleanup()
 			return
 		}
 
@@ -423,7 +464,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to create temp file:", err)
-			cleanup()
 			return
 		}
 
@@ -433,7 +473,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to write temp file:", err)
-			cleanup()
 			return
 		}
 
@@ -444,7 +483,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to acquire database pool:", err)
-			cleanup()
 			return
 		}
 
@@ -455,7 +493,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to check if infinity database exists:", err)
-			cleanup()
 			return
 		}
 
@@ -476,7 +513,6 @@ var seedApplyCmd = &cobra.Command{
 				} else {
 					if nonce == md.Nonce {
 						fmt.Println("You are on the latest seed already!")
-						cleanup()
 						return
 					}
 				}
@@ -493,7 +529,7 @@ var seedApplyCmd = &cobra.Command{
 
 		pool.Exec(context.Background(), "CREATE DATABASE infinity")
 
-		fmt.Println("Restoring database backup")
+		fmt.Println("Restoring database schema")
 
 		pool.Close()
 
@@ -502,19 +538,65 @@ var seedApplyCmd = &cobra.Command{
 
 		restoreCmd.Stdout = os.Stdout
 		restoreCmd.Stderr = os.Stderr
+		restoreCmd.Env = dbcommon.CreateEnv()
 
-		outCode := restoreCmd.Run()
+		err = restoreCmd.Run()
 
-		if outCode != nil {
-			fmt.Println("Failed to restore database backup with error:", outCode)
-			cleanup()
+		if err != nil {
+			fmt.Println("Failed to restore database backup with error:", err)
 			return
 		}
 
-		if !restoreCmd.ProcessState.Success() {
-			fmt.Println("Failed to restore database backup with unknown error")
-			cleanup()
-			return
+		fmt.Println("Restoring backed up tables")
+
+		// Restore backed up tables
+		var tables []string
+
+		for key := range files {
+			if strings.HasPrefix(key, "backup/") {
+				tables = append(tables, key[7:])
+			}
+		}
+
+		for i, table := range tables {
+			fmt.Printf("Restoring table: [%d/%d] %s\n", i+1, len(tables), table)
+
+			backupBuf, ok := files["backup/"+table]
+
+			if !ok {
+				fmt.Println("Failed to find backup for table", table)
+				return
+			}
+
+			backupFile, err := os.Create("work/temp-" + table + ".sql")
+
+			if err != nil {
+				fmt.Println("Failed to create temp file:", err)
+				return
+			}
+
+			defer backupFile.Close()
+
+			_, err = backupFile.Write(backupBuf.Bytes())
+
+			if err != nil {
+				fmt.Println("Failed to write temp file:", err)
+				return
+			}
+
+			// Use pg_restore to restore file
+			restoreCmd = exec.Command("pg_restore", "-d", "infinity", "-h", "localhost", "-p", "5432", "work/temp-"+table+".sql")
+
+			restoreCmd.Stdout = os.Stdout
+			restoreCmd.Stderr = os.Stderr
+			restoreCmd.Env = dbcommon.CreateEnv()
+
+			err = restoreCmd.Run()
+
+			if err != nil {
+				fmt.Println("Failed to restore database backup with error:", err)
+				return
+			}
 		}
 
 		os.Setenv("PGDATABASE", "infinity")
@@ -523,7 +605,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to acquire database pool for newly created database:", err)
-			cleanup()
 			return
 		}
 
@@ -531,7 +612,6 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to create seed_info table:", err)
-			cleanup()
 			return
 		}
 
@@ -539,11 +619,8 @@ var seedApplyCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("Failed to insert seed info:", err)
-			cleanup()
 			return
 		}
-
-		cleanup()
 	},
 }
 
