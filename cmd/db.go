@@ -147,7 +147,7 @@ var seedNewCmd = &cobra.Command{
 			fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(tables), table)
 
 			// Create backup using pg_dump
-			backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "-t", table, "-f", fmt.Sprintf("work/%s.sql", table))
+			backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "--data-only", "-t", table, "-f", fmt.Sprintf("work/%s.sql", table))
 
 			backupCmd.Env = dbcommon.CreateEnv()
 
@@ -538,7 +538,6 @@ var seedApplyCmd = &cobra.Command{
 
 		restoreCmd.Stdout = os.Stdout
 		restoreCmd.Stderr = os.Stderr
-		restoreCmd.Env = dbcommon.CreateEnv()
 
 		err = restoreCmd.Run()
 
@@ -589,7 +588,6 @@ var seedApplyCmd = &cobra.Command{
 
 			restoreCmd.Stdout = os.Stdout
 			restoreCmd.Stderr = os.Stderr
-			restoreCmd.Env = dbcommon.CreateEnv()
 
 			err = restoreCmd.Run()
 
