@@ -25,6 +25,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var coreSeedTables = []string{
+	"changelogs",
+	"partner_types",
+}
+
 const seedApiVer = "frostpaw-rev1" // e means encryption protocol version
 
 type Meta struct {
@@ -140,11 +145,8 @@ var seedNewCmd = &cobra.Command{
 		}
 
 		// Create backup of some core tables
-		tables := []string{
-			"changelogs",
-		}
-		for i, table := range tables {
-			fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(tables), table)
+		for i, table := range coreSeedTables {
+			fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(coreSeedTables), table)
 
 			// Create backup using pg_dump
 			backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "--data-only", "-t", table, "-f", fmt.Sprintf("work/%s.sql", table))
@@ -204,7 +206,7 @@ var seedNewCmd = &cobra.Command{
 		}
 
 		// Write backup table assets to tar file
-		for _, table := range tables {
+		for _, table := range coreSeedTables {
 			// Open backup file
 			backupFile, err := os.Open(fmt.Sprintf("work/%s.sql", table))
 
