@@ -650,9 +650,118 @@ var copyDb = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Creating database backup as schema.sql")
+		fmt.Println("Creating unsanitized database backup as work/schema.sql")
 
 		backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity", "-f", "work/schema.sql")
+
+		backupCmd.Env = dbcommon.CreateEnv()
+
+		err = backupCmd.Run()
+
+		if err != nil {
+			fmt.Println("Error when creating db backup", err)
+			return
+		}
+
+		// Make copy (__dbcopy) using created db backup on source server
+		fmt.Println("Creating copy of database on source server with name 'infinity__dbcopy'")
+
+		cmds := [][]string{
+			{
+				"psql", "-c", "DROP DATABASE IF EXISTS infinity__dbcopy",
+			},
+			{
+				"psql", "-c", "CREATE DATABASE infinity__dbcopy",
+			},
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
+			},
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "CREATE EXTENSION IF NOT EXISTS \"citext\"",
+			},
+			{
+				"pg_restore", "-d", "infinity__dbcopy", "work/schema.sql",
+			},
+		}
+
+		defer func() {
+			// Delete copy (__dbcopy) on source server
+			fmt.Println("CLEANUP: Deleting copy of database on source server with name 'infinity__dbcopy'")
+
+			cmd := exec.Command("psql", "-c", "DROP DATABASE IF EXISTS infinity__dbcopy")
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Env = dbcommon.CreateEnv()
+
+			err = cmd.Run()
+
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("FATAL: Cleanup task to delete infinity__dbcopy has failed! Please do so manually.")
+				return
+			}
+		}()
+
+		// Execute commands on current server
+		for _, c := range cmds {
+			fmt.Println("=>", strings.Join(c, " "))
+			cmd := exec.Command(c[0], c[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Env = dbcommon.CreateEnv()
+
+			err = cmd.Run()
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+
+		// Delete work/schema.sql
+		err = os.Remove("work/schema.sql")
+
+		if err != nil {
+			fmt.Println("Error when deleting work/schema.sql:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Sanitizing copied database")
+
+		sanitizeCmds := [][]string{
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "DELETE FROM webhooks",
+			},
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE users SET api_token = uuid_generate_v4()::text",
+			},
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE bots SET api_token = uuid_generate_v4()::text",
+			},
+			{
+				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE servers SET api_token = uuid_generate_v4()::text",
+			},
+		}
+
+		for _, c := range sanitizeCmds {
+			fmt.Println("=>", strings.Join(c, " "))
+			cmd := exec.Command(c[0], c[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Env = os.Environ()
+
+			err = cmd.Run()
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+
+		fmt.Println("Creating sanitized database backup as work/schema.sql")
+
+		backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity__dbcopy", "-f", "work/schema.sql")
 
 		backupCmd.Env = dbcommon.CreateEnv()
 
@@ -674,50 +783,21 @@ var copyDb = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Restoring database on target server")
-
-		cmds := [][]string{
+		cmds = [][]string{
 			{
-				"psql", "-c", "'DROP DATABASE IF EXISTS infinity_bak'",
+				"psql", "-c", "'DROP DATABASE IF EXISTS infinity'",
 			},
 			{
-				"psql", "-c", "'CREATE DATABASE infinity_bak'",
+				"psql", "-c", "'CREATE DATABASE infinity'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
+				"psql", "-d", "infinity", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
 			},
 			{
-				"psql", "-d", "infinity_bak", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
+				"psql", "-d", "infinity", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
 			},
 			{
-				"pg_restore", "-d", "infinity_bak", "/tmp/schema.sql",
-			},
-			{
-				"psql", "-d", "infinity_bak", "-c", "'DELETE FROM webhooks'",
-			},
-			{
-				"psql", "-d", "infinity_bak", "-c", "'UPDATE users SET api_token = uuid_generate_v4()::text'",
-			},
-			{
-				"psql", "-d", "infinity_bak", "-c", "'UPDATE bots SET api_token = uuid_generate_v4()::text'",
-			},
-			{
-				"psql", "-d", "infinity_bak", "-c", "'UPDATE servers SET api_token = uuid_generate_v4()::text'",
-			},
-			{
-				"psql", "-d", "infinity", "-c", "'DROP DATABASE IF EXISTS infinity_old'",
-			},
-			{
-				"psql", "-d", "infinity_bak", "-c", "'ALTER DATABASE infinity RENAME TO infinity_old'",
-			},
-			{
-				"psql", "-c", "'ALTER DATABASE infinity_bak RENAME TO infinity'",
-			},
-			{
-				"psql", "-d", "infinity", "-c", "'DROP DATABASE IF EXISTS infinity_old'",
-			},
-			{
-				"pg_dump", "-Fc", "-d", "infinity", "-f", "/tmp/prod.sql",
+				"pg_restore", "-d", "infinity", "/tmp/schema.sql",
 			},
 			{
 				"psql", "-c", "'DROP DATABASE IF EXISTS infinity__prodmarker'",
@@ -732,15 +812,15 @@ var copyDb = &cobra.Command{
 				"psql", "-d", "infinity__prodmarker", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
 			},
 			{
-				"pg_restore", "-d", "infinity__prodmarker", "/tmp/prod.sql",
+				"pg_restore", "-d", "infinity__prodmarker", "/tmp/schema.sql",
 			},
 			{
-				"rm", "/tmp/prod.sql", "/tmp/schema.sql",
+				"rm", "/tmp/schema.sql",
 			},
 		}
 
 		for _, c := range cmds {
-			fmt.Println("=>", strings.Join(c, " "))
+			fmt.Println("(ssh) =>", strings.Join(c, " "))
 
 			cmd := exec.Command("ssh", args[0], strings.Join(c, " "))
 
