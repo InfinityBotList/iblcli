@@ -164,6 +164,10 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 
 		if metadata.EncryptionData != nil {
 			fmt.Println("File encrypted with nonce:", metadata.EncryptionData.Nonce)
+
+			if os.Getenv("SHOW_PUBKEY") == "true" {
+				fmt.Println(string(metadata.EncryptionData.PEM))
+			}
 		} else {
 			fmt.Println("File is not encrypted")
 		}
