@@ -21,7 +21,7 @@ var versionCmd = &cobra.Command{
 		fmt.Println("version:", GitCommit)
 		fmt.Println("buildRev:", BuildRev)
 		fmt.Println("buildTime:", BuildTime)
-		fmt.Println("seedApiVersion:", seedApiVer)
+		fmt.Println("dbFileProtocol:", protocol)
 		fmt.Println("goInfo:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		fmt.Println("devMode:", devmode.DevMode())
 
