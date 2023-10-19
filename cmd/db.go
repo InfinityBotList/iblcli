@@ -263,12 +263,13 @@ func decryptData(encData *bytes.Buffer, enc *EncryptionData, privkey []byte) (*b
 			return nil, fmt.Errorf("failed to decode private key file")
 		}
 
-		priv, parseErr := x509.ParsePKCS1PrivateKey(pem.Bytes)
+		privInterface, parseErr := x509.ParsePKCS8PrivateKey(pem.Bytes)
 
 		if parseErr != nil {
 			return nil, fmt.Errorf("failed to parse private key: %s", parseErr)
 		}
 
+		priv := privInterface.(*rsa.PrivateKey)
 		msg, err := rsa.DecryptOAEP(hash, random, priv, key, nil)
 
 		if err != nil {
@@ -392,8 +393,8 @@ var newCmd = &cobra.Command{
 			encData, enc, err := encryptData(
 				func() (*bytes.Buffer, error) {
 					// Create full backup of the database
-					var backupBuf *bytes.Buffer
-					backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity", "-f", "work/backup.sql")
+					var backupBuf = bytes.NewBuffer([]byte{})
+					backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity")
 					backupCmd.Env = dbcommon.CreateEnv()
 					backupCmd.Stdout = backupBuf
 
@@ -402,6 +403,8 @@ var newCmd = &cobra.Command{
 					if err != nil {
 						return nil, err
 					}
+
+					fmt.Println("Created", backupBuf.Len(), "byte backup file")
 
 					return backupBuf, nil
 				},
@@ -437,7 +440,7 @@ var newCmd = &cobra.Command{
 
 			fmt.Println("Creating database backup as schema.sql")
 
-			var schemaBuf *bytes.Buffer
+			var schemaBuf = bytes.NewBuffer([]byte{})
 			backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", "infinity")
 			backupCmd.Env = dbcommon.CreateEnv()
 			backupCmd.Stdout = schemaBuf
@@ -462,7 +465,7 @@ var newCmd = &cobra.Command{
 				fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(coreSeedTables), table)
 
 				// Create backup using pg_dump
-				var backupBuf *bytes.Buffer
+				var backupBuf = bytes.NewBuffer([]byte{})
 				backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "--data-only", "-t", table)
 
 				backupCmd.Env = dbcommon.CreateEnv()
@@ -574,6 +577,14 @@ var loadCmd = &cobra.Command{
 			}
 		}()
 
+		if os.Getenv("ALLOW_ROOT") != "true" {
+			// Check if user is root
+			if os.Geteuid() == 0 {
+				fmt.Println("You must not run this command as root!")
+				return
+			}
+		}
+
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
@@ -670,10 +681,11 @@ var loadCmd = &cobra.Command{
 			}
 
 			// Create pg_dump
-			backupCmd := exec.Command("pg_restore", "-d", dbName, "-h", "localhost", "-p", "5432")
+			backupCmd := exec.Command("pg_restore", "-d", dbName)
 
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
+			backupCmd.Env = dbcommon.CreateEnv()
 			backupCmd.Stdin = decrData
 
 			err = backupCmd.Run()
@@ -750,11 +762,11 @@ var loadCmd = &cobra.Command{
 			conn.Close(ctx)
 
 			// Use pg_restore to restore seedman.tmp
-			restoreCmd := exec.Command("pg_restore", "-d", "infinity", "-h", "localhost", "-p", "5432")
+			restoreCmd := exec.Command("pg_restore", "-d", "infinity")
 			restoreCmd.Stdout = os.Stdout
 			restoreCmd.Stderr = os.Stderr
 			restoreCmd.Stdin = schema
-
+			restoreCmd.Env = dbcommon.CreateEnv()
 			err = restoreCmd.Run()
 
 			if err != nil {
@@ -783,28 +795,13 @@ var loadCmd = &cobra.Command{
 					return
 				}
 
-				backupFile, err := os.Create("work/temp-" + table + ".sql")
-
-				if err != nil {
-					fmt.Println("Failed to create temp file:", err)
-					return
-				}
-
-				defer backupFile.Close()
-
-				_, err = backupFile.Write(backupBuf.Bytes())
-
-				if err != nil {
-					fmt.Println("Failed to write temp file:", err)
-					return
-				}
-
 				// Use pg_restore to restore file
-				restoreCmd = exec.Command("pg_restore", "-d", "infinity", "-h", "localhost", "-p", "5432", "work/temp-"+table+".sql")
+				restoreCmd = exec.Command("pg_restore", "-d", "infinity")
 
 				restoreCmd.Stdout = os.Stdout
 				restoreCmd.Stderr = os.Stderr
-
+				restoreCmd.Stdin = backupBuf
+				restoreCmd.Env = dbcommon.CreateEnv()
 				err = restoreCmd.Run()
 
 				if err != nil {
