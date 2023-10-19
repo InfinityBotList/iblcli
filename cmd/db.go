@@ -1051,27 +1051,35 @@ var copyDb = &cobra.Command{
 }
 
 var genCiSchemaCmd = &cobra.Command{
-	Use:   "gen-ci-schema",
+	Use:   "gen-ci-schema <path>",
 	Short: "Generates a seed-ci.json file for use in CI",
 	Long:  "Generates a seed-ci.json file for use in CI",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Generate schema for CI
-		pool, err := pgxpool.Connect(context.Background(), "postgres:///infinity")
+		ctx := context.Background()
+		pool, err := pgxpool.Connect(ctx, "postgres:///infinity")
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get pool:", err)
 			return
 		}
 
-		schema, err := dbparser.GetSchema(context.Background(), pool)
+		schema, err := dbparser.GetSchema(ctx, pool)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get schema for CI etc.:", err)
 			return
 		}
 
+		path := path + "/seed-ci.json"
+
+		if len(args) > 0 {
+			path = args[0]
+		}
+
 		// Dump schema to JSON file named "seed-ci.json"
-		schemaFile, err := os.Create(path + "/seed-ci.json")
+		schemaFile, err := os.Create(path)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to create schema file:", err)
