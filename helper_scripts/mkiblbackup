@@ -39,8 +39,6 @@ scp ${FILE} autobackup@orchard:/wafflepaw/backups/pg/$1/${FILENAME}
 # Remove the filename from the waitlog
 sed -i "/${FILENAME}/d" /silverpelt/backups/pg/$1/waitlog
 
-systemctl stop ibl-dbbackup.service && systemctl restart ibl-dbbackup.timer
-
 # Get entries from waitlog as an array
 <<"COMMENT"
     IFS=$'\n' read -d '' -r -a waitlog < /silverpelt/backups/pg/$1/waitlog
