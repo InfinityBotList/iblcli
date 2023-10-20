@@ -149,7 +149,7 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 	// Get size of decompressed file
 	tarSize := tarBuf.Len()
 
-	fmt.Println("Decompressed size: ", tarSize, "bytes")
+	fmt.Println("Decompressed size:", tarSize, "bytes")
 
 	files := readTarFile(tarBuf)
 
@@ -178,6 +178,8 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 	} else {
 		fmt.Println("No metadata present! File is likely corrupt.")
 	}
+
+	fmt.Println("")
 
 	return files, nil, nil
 }
