@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/agents/dbcommon"
 	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
 	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/downloader"
@@ -435,7 +434,7 @@ var newCmd = &cobra.Command{
 						// Create full backup of the database
 						var backupBuf = bytes.NewBuffer([]byte{})
 						backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
-						backupCmd.Env = dbcommon.CreateEnv()
+						backupCmd.Env = os.Environ()
 						backupCmd.Stdout = backupBuf
 
 						err = backupCmd.Run()
@@ -497,7 +496,7 @@ var newCmd = &cobra.Command{
 
 			var schemaBuf = bytes.NewBuffer([]byte{})
 			backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", dbName)
-			backupCmd.Env = dbcommon.CreateEnv()
+			backupCmd.Env = os.Environ()
 			backupCmd.Stdout = schemaBuf
 
 			err = backupCmd.Run()
@@ -534,7 +533,7 @@ var newCmd = &cobra.Command{
 				var backupBuf = bytes.NewBuffer([]byte{})
 				backupCmd = exec.Command("pg_dump", "-Fc", "-d", dbName, "--data-only", "-t", table)
 
-				backupCmd.Env = dbcommon.CreateEnv()
+				backupCmd.Env = os.Environ()
 				backupCmd.Stdout = backupBuf
 
 				err = backupCmd.Run()
@@ -641,11 +640,35 @@ var infoCmd = &cobra.Command{
 
 		defer f.Close()
 
-		_, _, err = parseData(f)
+		sections, meta, err := parseData(f)
 
 		if err != nil {
 			fmt.Println("ERROR:", err)
 			return
+		}
+
+		switch meta.Type {
+		case "seed":
+			seedMetaBuf, ok := sections["seed_meta"]
+
+			if !ok {
+				fmt.Println("Seed file is corrupt [no seed meta]")
+				return
+			}
+
+			var smeta SeedMetadata
+
+			err = json.NewDecoder(seedMetaBuf).Decode(&smeta)
+
+			if err != nil {
+				fmt.Println("Seed file is corrupt [invalid seed meta]")
+				return
+			}
+
+			fmt.Println("== Seed Info ==")
+			fmt.Println("Nonce:", smeta.Nonce)
+			fmt.Println("Default Database:", smeta.DefaultDatabase)
+			fmt.Println("Source Database:", smeta.SourceDatabase)
 		}
 	},
 }
@@ -783,7 +806,7 @@ var loadCmd = &cobra.Command{
 
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
-			backupCmd.Env = dbcommon.CreateEnv()
+			backupCmd.Env = os.Environ()
 			backupCmd.Stdin = decrData
 
 			err = backupCmd.Run()
@@ -891,7 +914,7 @@ var loadCmd = &cobra.Command{
 			restoreCmd.Stdout = os.Stdout
 			restoreCmd.Stderr = os.Stderr
 			restoreCmd.Stdin = schema
-			restoreCmd.Env = dbcommon.CreateEnv()
+			restoreCmd.Env = os.Environ()
 			err = restoreCmd.Run()
 
 			if err != nil {
@@ -926,7 +949,7 @@ var loadCmd = &cobra.Command{
 				restoreCmd.Stdout = os.Stdout
 				restoreCmd.Stderr = os.Stderr
 				restoreCmd.Stdin = backupBuf
-				restoreCmd.Env = dbcommon.CreateEnv()
+				restoreCmd.Env = os.Environ()
 				err = restoreCmd.Run()
 
 				if err != nil {
@@ -993,7 +1016,7 @@ var copyDb = &cobra.Command{
 
 		var buf = bytes.NewBuffer([]byte{})
 		backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
-		backupCmd.Env = dbcommon.CreateEnv()
+		backupCmd.Env = os.Environ()
 		backupCmd.Stdout = buf
 
 		err = backupCmd.Run()
@@ -1071,7 +1094,7 @@ var copyDb = &cobra.Command{
 		}
 
 		restoreCmd := exec.Command("pg_restore", "-d", copyDbName)
-		restoreCmd.Env = dbcommon.CreateEnv()
+		restoreCmd.Env = os.Environ()
 		restoreCmd.Stdout = os.Stdout
 		restoreCmd.Stderr = os.Stderr
 		restoreCmd.Stdin = buf
@@ -1154,7 +1177,7 @@ var copyDb = &cobra.Command{
 
 		backupCmd = exec.Command("pg_dump", "-Fc", "-d", copyDbName, "-f", "work/schema.sql")
 
-		backupCmd.Env = dbcommon.CreateEnv()
+		backupCmd.Env = os.Environ()
 
 		err = backupCmd.Run()
 

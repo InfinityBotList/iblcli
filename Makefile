@@ -16,6 +16,7 @@ all:
 	CGO_ENABLED=0 go build -v $(GOFLAGS_DBG)
 install: all
 	cp -rf ibl /usr/bin/ibl
+	cp -rf helper_scripts/* /usr/bin
 publish:
 	mkdir -p bin
 
@@ -37,6 +38,6 @@ publish:
 	echo -n "Infinity Bot List Developer Client.\nThis is a developer only client for managing our infrastructure (databases etc.). You probably want IBLCLI instead" > /silverpelt/cdn/ibl/dev/downloads/iblcli/description
 	chown -Rv ibl:ibl $(CDN_PATH)
 	rm -rf bin
-
+	
 mkiblseed:
 	su ibl -c "cd ~/ && ibl db new seed $(CDN_PATH)/seed.iblseed --db infinity --backup-tables changelogs,partner_types"
