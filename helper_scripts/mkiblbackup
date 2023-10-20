@@ -27,3 +27,5 @@ cp ${FILE} /silverpelt/backups/pg/$1
 ssh autobackup@orchard mkdir -p /wafflepaw/backups/pg/$1
 
 scp ${FILE} autobackup@orchard:/wafflepaw/backups/pg/$1/${FILENAME}
+
+rm ${FILE}
