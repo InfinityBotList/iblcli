@@ -196,6 +196,14 @@ func encryptSections(de ...dataEncrypt) (map[string]*bytes.Buffer, map[string]*E
 			return nil, nil, fmt.Errorf("no public key provided for section %s", d.section)
 		}
 
+		if d.section == "" {
+			return nil, nil, fmt.Errorf("no section name provided")
+		}
+
+		if d.data == nil {
+			return nil, nil, fmt.Errorf("no data function provided for section %s", d.section)
+		}
+
 		pem, _ := pem.Decode(d.pubkey)
 
 		if pem == nil {
