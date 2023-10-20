@@ -39,5 +39,3 @@ publish:
 	chown -Rv ibl:ibl $(CDN_PATH)
 	rm -rf bin
 	
-mkiblseed:
-	su ibl -c "cd ~/ && ibl db new seed $(CDN_PATH)/seed.iblseed --db infinity --backup-tables changelogs,partner_types"
