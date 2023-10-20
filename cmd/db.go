@@ -410,7 +410,7 @@ var newCmd = &cobra.Command{
 
 			if dbName == "" {
 				fmt.Println("ERROR: You must specify a database to backup!")
-				os.Exit(1)
+				return
 			}
 
 			pubKeyFile := cmd.Flag("pubkey").Value.String()
@@ -476,7 +476,7 @@ var newCmd = &cobra.Command{
 
 			if dbName == "" {
 				fmt.Println("ERROR: You must specify a database to seed from!")
-				os.Exit(1)
+				return
 			}
 
 			defaultDatabase := cmd.Flag("default-db").Value.String()
