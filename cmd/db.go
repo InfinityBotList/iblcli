@@ -169,18 +169,6 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
-		if len(metadata.EncryptionData) > 0 {
-			fmt.Println("File contains encrypted sections")
-
-			for sectionName, enc := range metadata.EncryptionData {
-				fmt.Println("Section", sectionName, "encrypted")
-				fmt.Print("Public Key:\n\n")
-				fmt.Println(string(enc.PEM))
-			}
-		} else {
-			fmt.Println("File is not encrypted")
-		}
-
 		return files, &metadata, nil
 	} else {
 		fmt.Println("No metadata present! File is likely corrupt.")
@@ -669,6 +657,19 @@ var infoCmd = &cobra.Command{
 			fmt.Println("Nonce:", smeta.Nonce)
 			fmt.Println("Default Database:", smeta.DefaultDatabase)
 			fmt.Println("Source Database:", smeta.SourceDatabase)
+		}
+
+		fmt.Println("\n== Extra Info ==")
+		if len(meta.EncryptionData) > 0 {
+			fmt.Println("File contains encrypted sections")
+
+			for sectionName, enc := range meta.EncryptionData {
+				fmt.Println("\nEncrypted section", sectionName)
+				fmt.Print("Public Key:\n\n")
+				fmt.Println(string(enc.PEM))
+			}
+		} else {
+			fmt.Println("File is not encrypted")
 		}
 	},
 }
