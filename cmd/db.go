@@ -665,7 +665,7 @@ var infoCmd = &cobra.Command{
 				return
 			}
 
-			fmt.Println("== Seed Info ==")
+			fmt.Println("\n== Seed Info ==")
 			fmt.Println("Nonce:", smeta.Nonce)
 			fmt.Println("Default Database:", smeta.DefaultDatabase)
 			fmt.Println("Source Database:", smeta.SourceDatabase)
