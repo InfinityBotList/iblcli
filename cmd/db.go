@@ -701,7 +701,7 @@ var infoCmd = &cobra.Command{
 			fmt.Println("File contains encrypted sections")
 
 			for sectionName, enc := range meta.EncryptionData {
-				fmt.Println("\n=> Encrypted section", sectionName)
+				fmt.Println("\n=> Encrypted section '" + sectionName + "'")
 
 				if showPubKey {
 					fmt.Print("Public Key:\n")
