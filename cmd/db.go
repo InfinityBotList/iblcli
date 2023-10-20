@@ -35,6 +35,11 @@ import (
 const protocol = "frostpaw-rev3-e1" // e means encryption protocol version
 const path = "/silverpelt/cdn/ibl/dev"
 
+// The number of keys to encrypt the data with
+//
+// Note that changing keycount does not need a change in protocol version
+const keyCount = 16
+
 type EncryptionData struct {
 	// Public key to encrypt data with
 	PEM []byte `json:"p"`
@@ -210,8 +215,6 @@ func encryptSections(de ...dataEncrypt) (map[string]*bytes.Buffer, map[string]*E
 		}
 
 		encNonce := crypto.RandString(128)
-
-		const keyCount = 2
 
 		pub = pubInterface.(*rsa.PublicKey)
 
@@ -617,6 +620,8 @@ var infoCmd = &cobra.Command{
 	Long:  `Gets info about a ibl db file`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		showPubKey := cmd.Flag("show-pubkey").Value.String() == "true"
+
 		filename := args[0]
 
 		f, err := os.Open(filename)
@@ -665,8 +670,11 @@ var infoCmd = &cobra.Command{
 
 			for sectionName, enc := range meta.EncryptionData {
 				fmt.Println("\n=> Encrypted section", sectionName)
-				fmt.Print("Public Key:\n")
-				fmt.Print(string(enc.PEM))
+
+				if showPubKey {
+					fmt.Print("Public Key:\n")
+					fmt.Print(string(enc.PEM))
+				}
 			}
 		} else {
 			fmt.Println("File is not encrypted")
@@ -1310,6 +1318,8 @@ var dbCmd = &cobra.Command{
 }
 
 func init() {
+	infoCmd.PersistentFlags().Bool("show-pubkey", false, "Whether or not to show the public key for the encrypted data")
+
 	copyDb.PersistentFlags().String("db", "", "The database to copy from")
 
 	loadCmd.PersistentFlags().String("priv-key", "", "The private key to decrypt the backup with [backup only]")
