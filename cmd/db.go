@@ -378,6 +378,8 @@ var newCmd = &cobra.Command{
 	Long:  `Creates a new database file. Either 'seed' or 'backup'`,
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		var dbCmdSuccess bool
+
 		defer func() {
 			fmt.Println("Cleaning up...")
 
@@ -385,7 +387,12 @@ var newCmd = &cobra.Command{
 			err := os.RemoveAll("work")
 
 			if err != nil {
-				fmt.Println("Error cleaning up:", err)
+				fmt.Println("ERROR: could not remove work directory:", err)
+				os.Exit(1)
+			}
+
+			if !dbCmdSuccess {
+				os.Exit(1)
 			}
 		}()
 
@@ -643,6 +650,8 @@ var newCmd = &cobra.Command{
 		}
 
 		w.Close()
+
+		dbCmdSuccess = true
 	},
 }
 
@@ -659,8 +668,8 @@ var infoCmd = &cobra.Command{
 		f, err := os.Open(filename)
 
 		if err != nil {
-			fmt.Println("Failed to open file:", err)
-			return
+			fmt.Println("ERROR: Failed to open file:", err)
+			os.Exit(1)
 		}
 
 		defer f.Close()
@@ -669,7 +678,7 @@ var infoCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("ERROR:", err)
-			return
+			os.Exit(1)
 		}
 
 		switch meta.Type {
@@ -686,7 +695,7 @@ var infoCmd = &cobra.Command{
 			err = json.NewDecoder(seedMetaBuf).Decode(&smeta)
 
 			if err != nil {
-				fmt.Println("Seed file is corrupt [invalid seed meta]")
+				fmt.Println("WARNING: Seed file is corrupt [invalid seed meta]")
 				return
 			}
 
@@ -720,6 +729,8 @@ var loadCmd = &cobra.Command{
 	Short:   "Loads a file to the database. You must specify either 'latestseed' or the path to a loadable db file",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		var dbCmdSuccess bool
+
 		defer func() {
 			fmt.Println("Cleaning up...")
 
@@ -727,14 +738,19 @@ var loadCmd = &cobra.Command{
 			err := os.RemoveAll("work")
 
 			if err != nil {
-				fmt.Println("Error cleaning up:", err)
+				fmt.Println("ERROR: could not remove work directory:", err)
+				os.Exit(1)
+			}
+
+			if !dbCmdSuccess {
+				os.Exit(1)
 			}
 		}()
 
 		if os.Getenv("ALLOW_ROOT") != "true" {
 			// Check if user is root
 			if os.Geteuid() == 0 {
-				fmt.Println("You must not run this command as root!")
+				fmt.Println("ERROR: You must not run this command as root!")
 				return
 			}
 		}
@@ -743,7 +759,7 @@ var loadCmd = &cobra.Command{
 		err := os.Mkdir("work", 0755)
 
 		if err != nil {
-			fmt.Println("Error creating work directory", err)
+			fmt.Println("ERROR: could not create work directory", err)
 			return
 		}
 
@@ -761,7 +777,7 @@ var loadCmd = &cobra.Command{
 			buf, err = downloader.DownloadFileWithProgress(assetsUrl + "/seed.iblseed?n=" + crypto.RandString(12))
 
 			if err != nil {
-				fmt.Println("Failed to download seed file:", err)
+				fmt.Println("ERROR: Failed to download seed file:", err)
 				return
 			}
 
@@ -771,7 +787,7 @@ var loadCmd = &cobra.Command{
 			f, err := os.Open(filename)
 
 			if err != nil {
-				fmt.Println("Failed to open seed file:", err)
+				fmt.Println("ERROR: Failed to open seed file:", err)
 				return
 			}
 
@@ -802,28 +818,28 @@ var loadCmd = &cobra.Command{
 			privKeyFile := cmd.Flag("priv-key").Value.String()
 
 			if privKeyFile == "" {
-				fmt.Println("You must specify a private key to decrypt the seed with!")
+				fmt.Println("ERROR: You must specify a private key to decrypt the seed with!")
 				return
 			}
 
 			dbName := cmd.Flag("db").Value.String()
 
 			if dbName == "" {
-				fmt.Println("You must specify a database to restore the backup to!")
+				fmt.Println("ERROR: You must specify a database to restore the backup to!")
 				return
 			}
 
 			privKeyFileContents, err := os.ReadFile(privKeyFile)
 
 			if err != nil {
-				fmt.Println("Failed to read private key file:", err)
+				fmt.Println("ERROR: Failed to read private key file:", err)
 				return
 			}
 
 			encData, ok := sections["data"]
 
 			if !ok {
-				fmt.Println("DB file is corrupt [no backup data]")
+				fmt.Println("ERROR: DB file is corrupt [no backup data]")
 				return
 			}
 
@@ -834,7 +850,7 @@ var loadCmd = &cobra.Command{
 				decrData, err = decryptData(encData, enc, privKeyFileContents)
 
 				if err != nil {
-					fmt.Println("Failed to decrypt data:", err)
+					fmt.Println("ERROR: Failed to decrypt data:", err)
 					return
 				}
 			} else {
@@ -853,11 +869,11 @@ var loadCmd = &cobra.Command{
 			err = backupCmd.Run()
 
 			if err != nil {
-				fmt.Println("Failed to restore database backup with error:", err)
+				fmt.Println("ERROR: Failed to restore database backup with error:", err)
 				return
 			}
 
-			fmt.Println("Backup restored successfully!")
+			fmt.Println("NOTE: Backup restored successfully!")
 		case "seed":
 			dbName := cmd.Flag("db").Value.String()
 
@@ -867,20 +883,20 @@ var loadCmd = &cobra.Command{
 			seedMetaBuf, ok := sections["seed_meta"]
 
 			if !ok {
-				fmt.Println("Seed file is corrupt [no seed meta]")
+				fmt.Println("ERROR: Seed file is corrupt [no seed meta]")
 				return
 			}
 
 			err = json.NewDecoder(seedMetaBuf).Decode(&smeta)
 
 			if err != nil {
-				fmt.Println("Seed file is corrupt [invalid seed meta]")
+				fmt.Println("ERROR: Seed file is corrupt [invalid seed meta]")
 				return
 			}
 
 			if dbName == "" {
 				if smeta.DefaultDatabase == "" {
-					fmt.Println("No default database name is specified in this seed. You must specify a database to restore the seed to using the --db argument")
+					fmt.Println("ERROR: No default database name is specified in this seed. You must specify a database to restore the seed to using the --db argument")
 					return
 				} else {
 					dbName = smeta.DefaultDatabase
@@ -891,7 +907,7 @@ var loadCmd = &cobra.Command{
 			schema, ok := sections["schema"]
 
 			if !ok {
-				fmt.Println("Seed file is corrupt [no schema]")
+				fmt.Println("ERROR: Seed file is corrupt [no schema]")
 				return
 			}
 
@@ -902,7 +918,7 @@ var loadCmd = &cobra.Command{
 			conn, err := pgx.Connect(ctx, "")
 
 			if err != nil {
-				fmt.Println("Failed to acquire database conn:", err)
+				fmt.Println("ERROR: Failed to acquire database conn:", err)
 				return
 			}
 
@@ -912,7 +928,7 @@ var loadCmd = &cobra.Command{
 			err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = $1)", dbName).Scan(&exists)
 
 			if err != nil {
-				fmt.Println("Failed to check if database exists:", err)
+				fmt.Println("ERROR: Failed to check if database exists:", err)
 				return
 			}
 
@@ -921,17 +937,18 @@ var loadCmd = &cobra.Command{
 				iconn, err := pgx.Connect(ctx, "postgres:///"+dbName)
 
 				if err != nil {
-					fmt.Println("Failed to acquire iconn:", err, "Ignoring...")
+					fmt.Println("ERROR: Failed to acquire iconn:", err, "Ignoring...")
 				} else {
 					var nonce string
 
 					err = iconn.QueryRow(ctx, "SELECT nonce FROM seed_info").Scan(&nonce)
 
 					if err != nil {
-						fmt.Println("Failed to check seed_info table:", err, ". Ignoring...")
+						fmt.Println("ERROR: Failed to check seed_info table:", err, ". Ignoring...")
 					} else {
 						if nonce == smeta.Nonce {
-							fmt.Println("You are on the latest seed already!")
+							dbCmdSuccess = true
+							fmt.Print("\n\nYou are on the latest seed already!")
 							return
 						}
 					}
@@ -959,7 +976,7 @@ var loadCmd = &cobra.Command{
 			err = restoreCmd.Run()
 
 			if err != nil {
-				fmt.Println("Failed to restore database backup with error:", err)
+				fmt.Println("ERROR: Failed to restore database backup with error:", err)
 				return
 			}
 
@@ -980,7 +997,7 @@ var loadCmd = &cobra.Command{
 				backupBuf, ok := sections["backup/"+table]
 
 				if !ok {
-					fmt.Println("Failed to find backup for table", table)
+					fmt.Println("ERROR: Failed to find backup for table", table)
 					return
 				}
 
@@ -994,7 +1011,7 @@ var loadCmd = &cobra.Command{
 				err = restoreCmd.Run()
 
 				if err != nil {
-					fmt.Println("Failed to restore database backup with error:", err)
+					fmt.Println("ERROR: Failed to restore database backup with error:", err)
 					return
 				}
 			}
@@ -1002,24 +1019,26 @@ var loadCmd = &cobra.Command{
 			conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
 
 			if err != nil {
-				fmt.Println("Failed to acquire database pool for newly created database:", err)
+				fmt.Println("ERROR: Failed to acquire database pool for newly created database:", err)
 				return
 			}
 
 			_, err = conn.Exec(ctx, "CREATE TABLE seed_info (nonce TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL)")
 
 			if err != nil {
-				fmt.Println("Failed to create seed_info table:", err)
+				fmt.Println("ERROR: Failed to create seed_info table:", err)
 				return
 			}
 
 			_, err = conn.Exec(ctx, "INSERT INTO seed_info (nonce, created_at) VALUES ($1, $2)", smeta.Nonce, meta.CreatedAt)
 
 			if err != nil {
-				fmt.Println("Failed to insert seed info:", err)
+				fmt.Println("ERROR: Failed to insert seed info:", err)
 				return
 			}
 		}
+
+		dbCmdSuccess = true
 	},
 }
 
@@ -1307,21 +1326,21 @@ var genCiSchemaCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get pool:", err)
-			return
+			os.Exit(1)
 		}
 
 		schema, err := dbparser.GetSchema(ctx, pool)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to get schema for CI etc.:", err)
-			return
+			os.Exit(1)
 		}
 
 		schemaFile, err := os.Create(args[0])
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to create schema file:", err)
-			return
+			os.Exit(1)
 		}
 
 		defer schemaFile.Close()
@@ -1330,7 +1349,7 @@ var genCiSchemaCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to write schema file:", err)
-			return
+			os.Exit(1)
 		}
 	},
 }

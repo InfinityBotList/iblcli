@@ -14,7 +14,8 @@ if [ -z "$2" ]; then
     exit 1
 fi
 
-FILE=/tmp/$1-${date '+%Y%m%d%H%M%S'}.iblcli-backup
+DATE=$(date '+%Y%m%d%H%M%S')
+FILE=/tmp/$1-${DATE}.iblcli-backup
 
 /usr/bin/ibl db new backup ${FILE} --db $1 --pubkey $2 
 
