@@ -38,7 +38,7 @@ var coreSeedTables = []string{
 	"partner_types",
 }
 
-const protocol = "frostpaw-rev2-e1" // e means encryption protocol version
+const protocol = "frostpaw-rev3-e1" // e means encryption protocol version
 const path = "/silverpelt/cdn/ibl/dev"
 
 type EncryptionData struct {
@@ -52,11 +52,21 @@ type EncryptionData struct {
 	Nonce string `json:"n"`
 }
 
+type SeedMetadata struct {
+	// Seed Nonce
+	Nonce string `json:"n"`
+
+	// The default database name
+	DefaultDatabase string `json:"d"`
+}
+
 type Meta struct {
-	CreatedAt      time.Time       `json:"c"`
-	Nonce          string          `json:"n"`
-	Protocol       string          `json:"p"`
-	EncryptionData *EncryptionData `json:"e,omitempty"`
+	CreatedAt time.Time `json:"c"`
+	Protocol  string    `json:"p"`
+
+	// Encryption data, if a section is encrypted
+	// This is a map that maps each section to its encryption data
+	EncryptionData map[string]*EncryptionData `json:"e,omitempty"`
 
 	// Type of the db file, either 'backup' or 'seed'
 	Type string `json:"t"`
@@ -162,11 +172,13 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
-		if metadata.EncryptionData != nil {
-			fmt.Println("File encrypted with nonce:", metadata.EncryptionData.Nonce)
+		if len(metadata.EncryptionData) == 0 {
+			fmt.Println("File contains encrypted sections")
 
-			if os.Getenv("SHOW_PUBKEY") == "true" {
-				fmt.Println(string(metadata.EncryptionData.PEM))
+			for sectionName, enc := range metadata.EncryptionData {
+				fmt.Println("Section", sectionName, "encrypted")
+				fmt.Print("Public Key:\n\n")
+				fmt.Println(string(enc.PEM))
 			}
 		} else {
 			fmt.Println("File is not encrypted")
@@ -180,79 +192,96 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 	return files, nil, nil
 }
 
-func encryptData(data func() (*bytes.Buffer, error), pubkey []byte) (*bytes.Buffer, *EncryptionData, error) {
-	pem, _ := pem.Decode(pubkey)
+type dataEncrypt struct {
+	section string
+	data    func() (*bytes.Buffer, error)
+	pubkey  []byte
+}
 
-	if pem == nil {
-		return nil, nil, fmt.Errorf("failed to decode public key file")
-	}
-
-	hash := sha512.New()
-	random := rand.Reader
-
-	// Generate a random 32 byte key
-	var pub *rsa.PublicKey
-	pubInterface, parseErr := x509.ParsePKIXPublicKey(pem.Bytes)
-
-	if parseErr != nil {
-		fmt.Println("Failed to parse public key:", parseErr)
-		return nil, nil, fmt.Errorf("failed to parse public key: %s", parseErr)
-	}
-
-	encNonce := crypto.RandString(128)
-
-	const keyCount = 2
-
-	pub = pubInterface.(*rsa.PublicKey)
-
-	var keys [][]byte
-	var encPass = []byte(encNonce)
-	for i := 0; i < keyCount; i++ {
-		msg := crypto.RandString(32)
-		key, encryptErr := rsa.EncryptOAEP(hash, random, pub, []byte(msg), nil)
-
-		if encryptErr != nil {
-			return nil, nil, fmt.Errorf("failed to encrypt data: %s", encryptErr)
+func encryptSections(de ...dataEncrypt) (map[string]*bytes.Buffer, map[string]*EncryptionData, error) {
+	var dataMap = make(map[string]*bytes.Buffer)
+	var encDataMap = make(map[string]*EncryptionData)
+	for _, d := range de {
+		if len(d.pubkey) == 0 {
+			return nil, nil, fmt.Errorf("no public key provided for section %s", d.section)
 		}
 
-		keys = append(keys, key)
-		encPass = append(encPass, msg...)
+		pem, _ := pem.Decode(d.pubkey)
+
+		if pem == nil {
+			return nil, nil, fmt.Errorf("failed to decode public key file")
+		}
+
+		hash := sha512.New()
+		random := rand.Reader
+
+		// Generate a random 32 byte key
+		var pub *rsa.PublicKey
+		pubInterface, parseErr := x509.ParsePKIXPublicKey(pem.Bytes)
+
+		if parseErr != nil {
+			fmt.Println("Failed to parse public key:", parseErr)
+			return nil, nil, fmt.Errorf("failed to parse public key: %s", parseErr)
+		}
+
+		encNonce := crypto.RandString(128)
+
+		const keyCount = 2
+
+		pub = pubInterface.(*rsa.PublicKey)
+
+		var keys [][]byte
+		var encPass = []byte(encNonce)
+		for i := 0; i < keyCount; i++ {
+			msg := crypto.RandString(32)
+			key, encryptErr := rsa.EncryptOAEP(hash, random, pub, []byte(msg), nil)
+
+			if encryptErr != nil {
+				return nil, nil, fmt.Errorf("failed to encrypt data: %s", encryptErr)
+			}
+
+			keys = append(keys, key)
+			encPass = append(encPass, msg...)
+		}
+
+		// Encrypt backupBuf with encryptedKey using aes-512-gcm
+		keyHash := sha256.New()
+		keyHash.Write(encPass)
+
+		c, err := aes.NewCipher(keyHash.Sum(nil))
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create cipher: %s", err)
+		}
+
+		gcm, err := cipher.NewGCM(c)
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create gcm: %s", err)
+		}
+
+		aesNonce := make([]byte, gcm.NonceSize())
+		if _, err = io.ReadFull(rand.Reader, aesNonce); err != nil {
+			return nil, nil, fmt.Errorf("failed to generate AES nonce: %s", err)
+		}
+
+		dataBuf, err := d.data()
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get data: %s", err)
+		}
+
+		encData := gcm.Seal(aesNonce, aesNonce, dataBuf.Bytes(), nil)
+
+		encDataMap[d.section] = &EncryptionData{
+			PEM:   d.pubkey,
+			Keys:  keys,
+			Nonce: encNonce,
+		}
+		dataMap[d.section] = bytes.NewBuffer(encData)
 	}
 
-	// Encrypt backupBuf with encryptedKey using aes-512-gcm
-	keyHash := sha256.New()
-	keyHash.Write(encPass)
-
-	c, err := aes.NewCipher(keyHash.Sum(nil))
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create cipher: %s", err)
-	}
-
-	gcm, err := cipher.NewGCM(c)
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create gcm: %s", err)
-	}
-
-	aesNonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, aesNonce); err != nil {
-		return nil, nil, fmt.Errorf("failed to generate AES nonce: %s", err)
-	}
-
-	dataBuf, err := data()
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get data: %s", err)
-	}
-
-	encData := gcm.Seal(aesNonce, aesNonce, dataBuf.Bytes(), nil)
-
-	return bytes.NewBuffer(encData), &EncryptionData{
-		PEM:   pubkey,
-		Keys:  keys,
-		Nonce: encNonce,
-	}, nil
+	return dataMap, encDataMap, nil
 }
 
 func decryptData(encData *bytes.Buffer, enc *EncryptionData, privkey []byte) (*bytes.Buffer, error) {
@@ -394,25 +423,28 @@ var newCmd = &cobra.Command{
 				return
 			}
 
-			encData, enc, err := encryptData(
-				func() (*bytes.Buffer, error) {
-					// Create full backup of the database
-					var backupBuf = bytes.NewBuffer([]byte{})
-					backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity")
-					backupCmd.Env = dbcommon.CreateEnv()
-					backupCmd.Stdout = backupBuf
+			encMap, encDataMap, err := encryptSections(
+				dataEncrypt{
+					section: "encBackupData",
+					data: func() (*bytes.Buffer, error) {
+						// Create full backup of the database
+						var backupBuf = bytes.NewBuffer([]byte{})
+						backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity")
+						backupCmd.Env = dbcommon.CreateEnv()
+						backupCmd.Stdout = backupBuf
 
-					err = backupCmd.Run()
+						err = backupCmd.Run()
 
-					if err != nil {
-						return nil, err
-					}
+						if err != nil {
+							return nil, err
+						}
 
-					fmt.Println("Created", backupBuf.Len(), "byte backup file")
+						fmt.Println("Created", backupBuf.Len(), "byte backup file")
 
-					return backupBuf, nil
+						return backupBuf, nil
+					},
+					pubkey: pubKeyFileContents,
 				},
-				pubKeyFileContents,
 			)
 
 			if err != nil {
@@ -422,22 +454,28 @@ var newCmd = &cobra.Command{
 
 			metadata = Meta{
 				CreatedAt:      time.Now(),
-				Nonce:          crypto.RandString(32),
 				Protocol:       protocol,
 				Type:           fileType,
-				EncryptionData: enc,
+				EncryptionData: encDataMap,
 			}
 
-			err = tarAddBuf(tarWriter, encData, "encBackupData")
+			for sectionName, encData := range encMap {
+				err = tarAddBuf(tarWriter, encData, sectionName)
 
-			if err != nil {
-				fmt.Println("Failed to write backup file to tar file:", err)
-				return
+				if err != nil {
+					fmt.Println("Failed to write section", sectionName, "to tar file:", err)
+					return
+				}
 			}
 		case "seed":
+			defaultDatabase := cmd.Flag("db").Value.String()
+
+			if defaultDatabase == "" {
+				fmt.Println("NOTE: No default database specified. Loading will require database to be manually specified")
+			}
+
 			metadata = Meta{
 				CreatedAt: time.Now(),
-				Nonce:     crypto.RandString(32),
 				Protocol:  protocol,
 				Type:      fileType,
 			}
@@ -489,6 +527,29 @@ var newCmd = &cobra.Command{
 					fmt.Println("Failed to write backup file to tar file:", err)
 					return
 				}
+			}
+
+			// Create seed meta file
+			seedMeta := SeedMetadata{
+				Nonce:           crypto.RandString(32),
+				DefaultDatabase: defaultDatabase,
+			}
+
+			seedMetaBuf := bytes.NewBuffer([]byte{})
+			enc := json.NewEncoder(seedMetaBuf)
+			err = enc.Encode(seedMeta)
+
+			if err != nil {
+				fmt.Println("Failed to marshal seed meta:", err)
+				return
+			}
+
+			// Write metadata buf to tar file
+			err = tarAddBuf(tarWriter, seedMetaBuf, "seed_meta")
+
+			if err != nil {
+				fmt.Println("Failed to write seed meta to tar file:", err)
+				return
 			}
 		default:
 			fmt.Println("Invalid type:", fileType)
@@ -677,11 +738,19 @@ var loadCmd = &cobra.Command{
 				return
 			}
 
-			decrData, err := decryptData(encData, meta.EncryptionData, privKeyFileContents)
+			enc, ok := meta.EncryptionData["encBackupData"]
 
-			if err != nil {
-				fmt.Println("Failed to decrypt data:", err)
-				return
+			var decrData *bytes.Buffer
+			if ok {
+				decrData, err = decryptData(encData, enc, privKeyFileContents)
+
+				if err != nil {
+					fmt.Println("Failed to decrypt data:", err)
+					return
+				}
+			} else {
+				fmt.Println("WARNING: Backup data is not encrypted!")
+				decrData = encData
 			}
 
 			// Create pg_dump
@@ -701,6 +770,34 @@ var loadCmd = &cobra.Command{
 
 			fmt.Println("Backup restored successfully!")
 		case "seed":
+			dbName := cmd.Flag("db").Value.String()
+
+			// Load seed metadata
+			var smeta SeedMetadata
+
+			seedMetaBuf, ok := sections["seed_meta"]
+
+			if !ok {
+				fmt.Println("Seed file is corrupt [no seed meta]")
+				return
+			}
+
+			err = json.NewDecoder(seedMetaBuf).Decode(&smeta)
+
+			if err != nil {
+				fmt.Println("Seed file is corrupt [invalid seed meta]")
+				return
+			}
+
+			if dbName == "" {
+				if smeta.DefaultDatabase == "" {
+					fmt.Println("No default database name is specified in this seed. You must specify a database to restore the seed to using the --db argument")
+					return
+				} else {
+					dbName = smeta.DefaultDatabase
+				}
+			}
+
 			// Unpack schema to temp file
 			schema, ok := sections["schema"]
 
@@ -709,7 +806,6 @@ var loadCmd = &cobra.Command{
 				return
 			}
 
-			// Ensure PGDATABASE is NOT set
 			os.Unsetenv("PGDATABASE")
 
 			ctx := context.Background()
@@ -724,7 +820,7 @@ var loadCmd = &cobra.Command{
 			// Check if a infinity database already exists
 			var exists bool
 
-			err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = 'infinity')").Scan(&exists)
+			err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = $1)", dbName).Scan(&exists)
 
 			if err != nil {
 				fmt.Println("Failed to check if infinity database exists:", err)
@@ -733,10 +829,10 @@ var loadCmd = &cobra.Command{
 
 			if exists {
 				// Check seed_info table for nonce
-				iconn, err := pgx.Connect(ctx, "postgres:///infinity")
+				iconn, err := pgx.Connect(ctx, "postgres:///"+dbName)
 
 				if err != nil {
-					fmt.Println("Failed to acquire iblPool:", err, "Ignoring...")
+					fmt.Println("Failed to acquire iconn:", err, "Ignoring...")
 				} else {
 					var nonce string
 
@@ -745,7 +841,7 @@ var loadCmd = &cobra.Command{
 					if err != nil {
 						fmt.Println("Failed to check seed_info table:", err, ". Ignoring...")
 					} else {
-						if nonce == meta.Nonce {
+						if nonce == smeta.Nonce {
 							fmt.Println("You are on the latest seed already!")
 							return
 						}
@@ -758,15 +854,15 @@ var loadCmd = &cobra.Command{
 			// Create role root
 			conn.Exec(ctx, "CREATE ROLE postgres")
 			conn.Exec(ctx, "CREATE ROLE root")
-			conn.Exec(ctx, "DROP DATABASE infinity")
-			conn.Exec(ctx, "CREATE DATABASE infinity")
+			conn.Exec(ctx, "DROP DATABASE "+dbName)
+			conn.Exec(ctx, "CREATE DATABASE "+dbName)
 
 			fmt.Println("Restoring database schema")
 
 			conn.Close(ctx)
 
 			// Use pg_restore to restore seedman.tmp
-			restoreCmd := exec.Command("pg_restore", "-d", "infinity")
+			restoreCmd := exec.Command("pg_restore", "-d", dbName)
 			restoreCmd.Stdout = os.Stdout
 			restoreCmd.Stderr = os.Stderr
 			restoreCmd.Stdin = schema
@@ -800,7 +896,7 @@ var loadCmd = &cobra.Command{
 				}
 
 				// Use pg_restore to restore file
-				restoreCmd = exec.Command("pg_restore", "-d", "infinity")
+				restoreCmd = exec.Command("pg_restore", "-d", dbName)
 
 				restoreCmd.Stdout = os.Stdout
 				restoreCmd.Stderr = os.Stderr
@@ -814,9 +910,7 @@ var loadCmd = &cobra.Command{
 				}
 			}
 
-			os.Setenv("PGDATABASE", "infinity")
-
-			conn, err = pgx.Connect(ctx, "postgres:///infinity")
+			conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
 
 			if err != nil {
 				fmt.Println("Failed to acquire database pool for newly created database:", err)
@@ -830,7 +924,7 @@ var loadCmd = &cobra.Command{
 				return
 			}
 
-			_, err = conn.Exec(ctx, "INSERT INTO seed_info (nonce, created_at) VALUES ($1, $2)", meta.Nonce, meta.CreatedAt)
+			_, err = conn.Exec(ctx, "INSERT INTO seed_info (nonce, created_at) VALUES ($1, $2)", smeta.Nonce, meta.CreatedAt)
 
 			if err != nil {
 				fmt.Println("Failed to insert seed info:", err)
@@ -1110,9 +1204,10 @@ var dbCmd = &cobra.Command{
 
 func init() {
 	loadCmd.PersistentFlags().String("priv-key", "", "The private key to decrypt the backup with [backup only]")
-	loadCmd.PersistentFlags().String("db", "", "The database to restore the backup to [backup only]")
+	loadCmd.PersistentFlags().String("db", "", "If type is backup, the database to restore the backup to (backup) or the database name to seed to (seed).")
 
 	newCmd.PersistentFlags().String("pubkey", "", "The public key to encrypt the seed with")
+	newCmd.PersistentFlags().String("db", "", "If type is seed, the default database name to seed to.")
 
 	if devmode.DevMode().Allows(types.DevModeFull) {
 		dbCmd.AddCommand(infoCmd)
