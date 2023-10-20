@@ -180,6 +180,7 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("")
 		fmt.Println("== Metadata ==")
 		fmt.Println("Protocol:", metadata.Protocol)
+		fmt.Println("File Version:", metadata.FormatVersion)
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
