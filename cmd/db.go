@@ -484,6 +484,7 @@ var newCmd = &cobra.Command{
 
 			if defaultDatabase == "" {
 				fmt.Println("NOTE: No default database specified, will use database name as default")
+				defaultDatabase = dbName
 			}
 
 			metadata = Meta{
