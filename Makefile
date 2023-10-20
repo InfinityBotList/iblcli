@@ -8,6 +8,7 @@ REPONAME := github.com/InfinityBotList/ibl
 PROJECTNAME := iblcli
 GOFLAGS := -trimpath -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)' -X '$(REPONAME)/cmd.ProjectName=$(PROJECTNAME)'"
 GOFLAGS_DBG := -trimpath -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
+CDN_PATH := /silverpelt/cdn/ibl/dev
 
 COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386 freebsd/amd64
 
@@ -29,11 +30,13 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf /silverpelt/cdn/ibl/dev/downloads/iblcli
-	mkdir -p /silverpelt/cdn/ibl/dev/downloads/iblcli
-	mv -vf bin/* /silverpelt/cdn/ibl/dev/downloads/iblcli
-	echo -n "$(BUILDREV)" > /silverpelt/cdn/ibl/dev/downloads/iblcli/current_rev
+	rm -rf $(CDN_PATH)/downloads/iblcli
+	mkdir -p $(CDN_PATH)/downloads/iblcli
+	mv -vf bin/* $(CDN_PATH)/downloads/iblcli
+	echo -n "$(BUILDREV)" > $(CDN_PATH)/downloads/iblcli/current_rev
 	echo -n "Infinity Bot List Developer Client.\nThis is a developer only client for managing our infrastructure (databases etc.). You probably want IBLCLI instead" > /silverpelt/cdn/ibl/dev/downloads/iblcli/description
-	chown -Rv ibl:ibl /silverpelt/cdn/ibl/
+	chown -Rv ibl:ibl $(CDN_PATH)
 	rm -rf bin
-	
+
+mkiblseed:
+	su ibl -c "cd ~/ && ibl db new seed $(CDN_PATH)/seed.iblseed --db infinity --backup-tables changelogs,partner_types"

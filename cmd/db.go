@@ -33,11 +33,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var coreSeedTables = []string{
-	"changelogs",
-	"partner_types",
-}
-
 const protocol = "frostpaw-rev3-e1" // e means encryption protocol version
 const path = "/silverpelt/cdn/ibl/dev"
 
@@ -56,8 +51,11 @@ type SeedMetadata struct {
 	// Seed Nonce
 	Nonce string `json:"n"`
 
-	// The default database name
+	// Default database name
 	DefaultDatabase string `json:"d"`
+
+	// Source database name
+	SourceDatabase string `json:"s"`
 }
 
 type Meta struct {
@@ -172,7 +170,7 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
-		if len(metadata.EncryptionData) == 0 {
+		if len(metadata.EncryptionData) > 0 {
 			fmt.Println("File contains encrypted sections")
 
 			for sectionName, enc := range metadata.EncryptionData {
@@ -409,6 +407,13 @@ var newCmd = &cobra.Command{
 
 		switch fileType {
 		case "backup":
+			dbName := cmd.Flag("db").Value.String()
+
+			if dbName == "" {
+				fmt.Println("ERROR: You must specify a database to backup!")
+				os.Exit(1)
+			}
+
 			pubKeyFile := cmd.Flag("pubkey").Value.String()
 
 			if pubKeyFile == "" {
@@ -429,7 +434,7 @@ var newCmd = &cobra.Command{
 					data: func() (*bytes.Buffer, error) {
 						// Create full backup of the database
 						var backupBuf = bytes.NewBuffer([]byte{})
-						backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity")
+						backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
 						backupCmd.Env = dbcommon.CreateEnv()
 						backupCmd.Stdout = backupBuf
 
@@ -468,10 +473,17 @@ var newCmd = &cobra.Command{
 				}
 			}
 		case "seed":
-			defaultDatabase := cmd.Flag("db").Value.String()
+			dbName := cmd.Flag("db").Value.String()
+
+			if dbName == "" {
+				fmt.Println("ERROR: You must specify a database to seed from!")
+				os.Exit(1)
+			}
+
+			defaultDatabase := cmd.Flag("default-db").Value.String()
 
 			if defaultDatabase == "" {
-				fmt.Println("NOTE: No default database specified. Loading will require database to be manually specified")
+				fmt.Println("NOTE: No default database specified, will use database name as default")
 			}
 
 			metadata = Meta{
@@ -483,7 +495,7 @@ var newCmd = &cobra.Command{
 			fmt.Println("Creating database backup as schema.sql")
 
 			var schemaBuf = bytes.NewBuffer([]byte{})
-			backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", "infinity")
+			backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", dbName)
 			backupCmd.Env = dbcommon.CreateEnv()
 			backupCmd.Stdout = schemaBuf
 
@@ -503,12 +515,23 @@ var newCmd = &cobra.Command{
 			}
 
 			// Create backup of some core tables
-			for i, table := range coreSeedTables {
-				fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(coreSeedTables), table)
+			var coreTables []string
+			backupTables := cmd.Flag("backup-tables").Value.String()
+
+			if backupTables != "" {
+				coreTables = strings.Split(backupTables, ",")
+
+				for i := range coreTables {
+					coreTables[i] = strings.TrimSpace(coreTables[i])
+				}
+			}
+
+			for i, table := range coreTables {
+				fmt.Printf("Backing up table: [%d/%d] %s\n", i+1, len(coreTables), table)
 
 				// Create backup using pg_dump
 				var backupBuf = bytes.NewBuffer([]byte{})
-				backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity", "--data-only", "-t", table)
+				backupCmd = exec.Command("pg_dump", "-Fc", "-d", dbName, "--data-only", "-t", table)
 
 				backupCmd.Env = dbcommon.CreateEnv()
 				backupCmd.Stdout = backupBuf
@@ -533,6 +556,7 @@ var newCmd = &cobra.Command{
 			seedMeta := SeedMetadata{
 				Nonce:           crypto.RandString(32),
 				DefaultDatabase: defaultDatabase,
+				SourceDatabase:  dbName,
 			}
 
 			seedMetaBuf := bytes.NewBuffer([]byte{})
@@ -753,7 +777,7 @@ var loadCmd = &cobra.Command{
 				decrData = encData
 			}
 
-			// Create pg_dump
+			// Restore dump
 			backupCmd := exec.Command("pg_restore", "-d", dbName)
 
 			backupCmd.Stdout = os.Stdout
@@ -817,13 +841,13 @@ var loadCmd = &cobra.Command{
 				return
 			}
 
-			// Check if a infinity database already exists
+			// Check if a database already exists
 			var exists bool
 
 			err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = $1)", dbName).Scan(&exists)
 
 			if err != nil {
-				fmt.Println("Failed to check if infinity database exists:", err)
+				fmt.Println("Failed to check if database exists:", err)
 				return
 			}
 
@@ -936,10 +960,10 @@ var loadCmd = &cobra.Command{
 
 // copyDb represents the copydb command
 var copyDb = &cobra.Command{
-	Use:   "copydb TO",
-	Short: "Copies the database from 'olympia' to current server. User must currently be on 'olympia'",
-	Long:  `Add an experiment to a user`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "copydb <database> <targetServer>",
+	Short: "Copies a database from current server to target server. User must currently be on current server",
+	Long:  `Copies a database from current server to target server. User must currently be on current server`,
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		defer func() {
 			fmt.Println("Cleaning up...")
@@ -952,6 +976,10 @@ var copyDb = &cobra.Command{
 			}
 		}()
 
+		ctx := context.Background()
+
+		dbName := args[1]
+
 		// create a work directory
 		err := os.Mkdir("work", 0755)
 
@@ -960,11 +988,12 @@ var copyDb = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Creating unsanitized database backup as work/schema.sql")
+		fmt.Println("Creating unsanitized database backup in memory")
 
-		backupCmd := exec.Command("pg_dump", "-Fc", "-d", "infinity", "-f", "work/schema.sql")
-
+		var buf = bytes.NewBuffer([]byte{})
+		backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
 		backupCmd.Env = dbcommon.CreateEnv()
+		backupCmd.Stdout = buf
 
 		err = backupCmd.Run()
 
@@ -973,105 +1002,156 @@ var copyDb = &cobra.Command{
 			return
 		}
 
-		// Make copy (__dbcopy) using created db backup on source server
-		fmt.Println("Creating copy of database on source server with name 'infinity__dbcopy'")
+		if buf.Len() == 0 {
+			fmt.Println("ERROR: Database backup is empty!")
+			return
+		}
 
-		cmds := [][]string{
-			{
-				"psql", "-c", "DROP DATABASE IF EXISTS infinity__dbcopy",
-			},
-			{
-				"psql", "-c", "CREATE DATABASE infinity__dbcopy",
-			},
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
-			},
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "CREATE EXTENSION IF NOT EXISTS \"citext\"",
-			},
-			{
-				"pg_restore", "-d", "infinity__dbcopy", "work/schema.sql",
-			},
+		// Make copy (__dbcopy) using created db backup on source server
+		fmt.Println("Creating copy of database on source server with name '" + dbName + "__dbcopy'")
+
+		copyDbName := dbName + "__dbcopy"
+
+		conn, err := pgx.Connect(ctx, "postgres:///"+dbName)
+
+		if err != nil {
+			fmt.Println("Failed to acquire database conn:", err)
+			return
+		}
+
+		sqlCmds := []string{
+			"DROP DATABASE IF EXISTS " + copyDbName,
+			"CREATE DATABASE " + copyDbName,
+		}
+
+		for _, c := range sqlCmds {
+			fmt.Println("[psql, origDb] =>", c)
+			_, err = conn.Exec(ctx, c)
+
+			if err != nil {
+				fmt.Println("Failed to execute sql command:", err)
+				return
+			}
+		}
+
+		err = conn.Close(ctx)
+
+		if err != nil {
+			fmt.Println("WARNING: Failed to close conn:", err)
+		}
+
+		conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
+
+		if err != nil {
+			fmt.Println("Failed to acquire copy database conn:", err)
+			return
+		}
+
+		sqlCmds = []string{
+			"CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
+			"CREATE EXTENSION IF NOT EXISTS \"citext\"",
+		}
+
+		for _, c := range sqlCmds {
+			fmt.Println("[psql, copyDb] =>", c)
+
+			_, err = conn.Exec(ctx, c)
+
+			if err != nil {
+				fmt.Println("Failed to execute sql command:", err)
+				return
+			}
+		}
+
+		err = conn.Close(ctx)
+
+		if err != nil {
+			fmt.Println("WARNING: Failed to close conn:", err)
+		}
+
+		restoreCmd := exec.Command("pg_restore", "-d", copyDbName)
+		restoreCmd.Env = dbcommon.CreateEnv()
+		restoreCmd.Stdout = os.Stdout
+		restoreCmd.Stderr = os.Stderr
+		restoreCmd.Stdin = buf
+
+		err = restoreCmd.Run()
+
+		if err != nil {
+			fmt.Println("Error when restoring db backup", err)
+			return
 		}
 
 		defer func() {
-			// Delete copy (__dbcopy) on source server
-			fmt.Println("CLEANUP: Deleting copy of database on source server with name 'infinity__dbcopy'")
+			cleanup := func() error {
+				// Delete copy (__dbcopy) on source server
+				fmt.Println("CLEANUP: Deleting copy of database on source server with name '" + copyDbName + "'")
 
-			cmd := exec.Command("psql", "-c", "DROP DATABASE IF EXISTS infinity__dbcopy")
+				conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
 
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = dbcommon.CreateEnv()
+				if err != nil {
+					return fmt.Errorf("failed to acquire database conn: %w", err)
+				}
 
-			err = cmd.Run()
+				_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+copyDbName)
+
+				if err != nil {
+					return fmt.Errorf("failed to drop copy database: %w", err)
+				}
+
+				err = conn.Close(ctx)
+
+				if err != nil {
+					fmt.Println("WARNING: Failed to close conn:", err)
+				}
+
+				return nil
+			}
+
+			err := cleanup()
 
 			if err != nil {
 				fmt.Println(err)
-				fmt.Println("FATAL: Cleanup task to delete infinity__dbcopy has failed! Please do so manually.")
+				fmt.Println("FATAL: Cleanup task to delete '"+copyDbName+"' has failed! Please do so manually.\nError:", err)
 				return
 			}
 		}()
 
-		// Execute commands on current server
-		for _, c := range cmds {
-			fmt.Println("=>", strings.Join(c, " "))
-			cmd := exec.Command(c[0], c[1:]...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = dbcommon.CreateEnv()
-
-			err = cmd.Run()
-
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		// Delete work/schema.sql
-		err = os.Remove("work/schema.sql")
-
-		if err != nil {
-			fmt.Println("Error when deleting work/schema.sql:", err)
-			os.Exit(1)
-		}
-
 		fmt.Println("Sanitizing copied database")
 
-		sanitizeCmds := [][]string{
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "DELETE FROM webhooks",
-			},
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE users SET api_token = uuid_generate_v4()::text",
-			},
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE bots SET api_token = uuid_generate_v4()::text",
-			},
-			{
-				"psql", "-d", "infinity__dbcopy", "-c", "UPDATE servers SET api_token = uuid_generate_v4()::text",
-			},
-		}
-
-		for _, c := range sanitizeCmds {
-			fmt.Println("=>", strings.Join(c, " "))
-			cmd := exec.Command(c[0], c[1:]...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = os.Environ()
-
-			err = cmd.Run()
+		switch dbName {
+		case "infinity":
+			conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
 
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Failed to acquire copy database conn:", err)
 				return
 			}
+
+			sqlCmds = []string{
+				"DELETE FROM webhooks",
+				"UPDATE users SET api_token = uuid_generate_v4()::text",
+				"UPDATE bots SET api_token = uuid_generate_v4()::text",
+				"UPDATE servers SET api_token = uuid_generate_v4()::text",
+			}
+
+			for _, c := range sqlCmds {
+				fmt.Println("[psql, copyDb] =>", c)
+
+				_, err = conn.Exec(ctx, c)
+
+				if err != nil {
+					fmt.Println("Failed to execute sql command:", err)
+					return
+				}
+			}
+		default:
+			fmt.Println("WARNING: No sanitization task for database", dbName)
 		}
 
 		fmt.Println("Creating sanitized database backup as work/schema.sql")
 
-		backupCmd = exec.Command("pg_dump", "-Fc", "-d", "infinity__dbcopy", "-f", "work/schema.sql")
+		backupCmd = exec.Command("pg_dump", "-Fc", "-d", copyDbName, "-f", "work/schema.sql")
 
 		backupCmd.Env = dbcommon.CreateEnv()
 
@@ -1093,36 +1173,38 @@ var copyDb = &cobra.Command{
 			return
 		}
 
-		cmds = [][]string{
+		prodMarkerName := dbName + "__prodmarker"
+
+		cmds := [][]string{
 			{
-				"psql", "-c", "'DROP DATABASE IF EXISTS infinity'",
+				"psql", "-c", "'DROP DATABASE IF EXISTS " + dbName + "'",
 			},
 			{
-				"psql", "-c", "'CREATE DATABASE infinity'",
+				"psql", "-c", "'CREATE DATABASE " + dbName + "'",
 			},
 			{
-				"psql", "-d", "infinity", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
+				"psql", "-d", dbName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
 			},
 			{
-				"psql", "-d", "infinity", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
+				"psql", "-d", dbName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
 			},
 			{
-				"pg_restore", "-d", "infinity", "/tmp/schema.sql",
+				"pg_restore", "-d", dbName, "/tmp/schema.sql",
 			},
 			{
-				"psql", "-c", "'DROP DATABASE IF EXISTS infinity__prodmarker'",
+				"psql", "-c", "'DROP DATABASE IF EXISTS " + prodMarkerName,
 			},
 			{
-				"psql", "-c", "'CREATE DATABASE infinity__prodmarker'",
+				"psql", "-c", "'CREATE DATABASE " + prodMarkerName,
 			},
 			{
-				"psql", "-d", "infinity__prodmarker", "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
+				"psql", "-d", prodMarkerName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
 			},
 			{
-				"psql", "-d", "infinity__prodmarker", "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
+				"psql", "-d", prodMarkerName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
 			},
 			{
-				"pg_restore", "-d", "infinity__prodmarker", "/tmp/schema.sql",
+				"pg_restore", "-d", prodMarkerName, "/tmp/schema.sql",
 			},
 			{
 				"rm", "/tmp/schema.sql",
@@ -1203,16 +1285,19 @@ var dbCmd = &cobra.Command{
 }
 
 func init() {
+	copyDb.PersistentFlags().String("db", "", "The database to copy from")
+
 	loadCmd.PersistentFlags().String("priv-key", "", "The private key to decrypt the backup with [backup only]")
 	loadCmd.PersistentFlags().String("db", "", "If type is backup, the database to restore the backup to (backup) or the database name to seed to (seed).")
 
 	newCmd.PersistentFlags().String("pubkey", "", "The public key to encrypt the seed with")
-	newCmd.PersistentFlags().String("db", "", "If type is seed, the default database name to seed to.")
+	newCmd.PersistentFlags().String("default-db", "", "If type is seed, the default database name to seed to.")
+	newCmd.PersistentFlags().String("db", "", "If type is backup, the database to backup to (backup) or the database name to seed from (seed).")
+	newCmd.PersistentFlags().String("backup-tables", "", "The tables to fully backup in the seed [seed only]")
 
 	if devmode.DevMode().Allows(types.DevModeFull) {
 		dbCmd.AddCommand(infoCmd)
 		dbCmd.AddCommand(genCiSchemaCmd)
-		dbCmd.AddCommand(copyDb)
 		dbCmd.AddCommand(newCmd)
 	}
 
