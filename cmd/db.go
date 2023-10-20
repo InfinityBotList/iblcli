@@ -32,8 +32,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const protocol = "frostpaw-rev3-e1" // e means encryption protocol version
-const path = "/silverpelt/cdn/ibl/dev"
+const protocol = "frostpaw-rev4-e1" // e means encryption protocol version
+
+var formatVersionMap = map[string]string{
+	"backup": "a1",
+	"seed":   "a1",
+}
 
 // The number of keys to encrypt the data with
 //
@@ -65,6 +69,11 @@ type SeedMetadata struct {
 type Meta struct {
 	CreatedAt time.Time `json:"c"`
 	Protocol  string    `json:"p"`
+
+	// Format version
+	//
+	// This can be used to create breaking changes to a file type without changing the entire protocol
+	FormatVersion string `json:"v,omitempty"`
 
 	// Encryption data, if a section is encrypted
 	// This is a map that maps each section to its encryption data
@@ -174,14 +183,22 @@ func parseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
+		v, ok := formatVersionMap[metadata.Type]
+
+		if !ok {
+			return nil, nil, fmt.Errorf("invalid type: %s", metadata.Type)
+		}
+
+		if metadata.FormatVersion != v {
+			return nil, nil, fmt.Errorf("this %s uses format version %s, but this version of the tool only supports version %s", metadata.Type, metadata.FormatVersion, v)
+		}
+
+		fmt.Println("")
+
 		return files, &metadata, nil
 	} else {
-		fmt.Println("No metadata present! File is likely corrupt.")
+		return files, nil, fmt.Errorf("no metadata present")
 	}
-
-	fmt.Println("")
-
-	return files, nil, nil
 }
 
 type dataEncrypt struct {
@@ -430,7 +447,7 @@ var newCmd = &cobra.Command{
 
 			encMap, encDataMap, err := encryptSections(
 				dataEncrypt{
-					section: "encBackupData",
+					section: "data",
 					data: func() (*bytes.Buffer, error) {
 						// Create full backup of the database
 						var backupBuf = bytes.NewBuffer([]byte{})
@@ -458,9 +475,6 @@ var newCmd = &cobra.Command{
 			}
 
 			metadata = Meta{
-				CreatedAt:      time.Now(),
-				Protocol:       protocol,
-				Type:           fileType,
 				EncryptionData: encDataMap,
 			}
 
@@ -485,12 +499,6 @@ var newCmd = &cobra.Command{
 			if defaultDatabase == "" {
 				fmt.Println("NOTE: No default database specified, will use database name as default")
 				defaultDatabase = dbName
-			}
-
-			metadata = Meta{
-				CreatedAt: time.Now(),
-				Protocol:  protocol,
-				Type:      fileType,
 			}
 
 			fmt.Println("Creating database backup as schema.sql")
@@ -573,13 +581,26 @@ var newCmd = &cobra.Command{
 			err = tarAddBuf(tarWriter, seedMetaBuf, "seed_meta")
 
 			if err != nil {
-				fmt.Println("Failed to write seed meta to tar file:", err)
+				fmt.Println("Failed to write seed-specific meta to tar file:", err)
 				return
 			}
 		default:
 			fmt.Println("Invalid type:", fileType)
 			return
 		}
+
+		metadata.CreatedAt = time.Now()
+		metadata.Protocol = protocol
+		metadata.Type = fileType
+
+		v, ok := formatVersionMap[fileType]
+
+		if !ok {
+			fmt.Println("INTERNAL ERROR: Invalid format type despite having creation ability?", fileType)
+			return
+		}
+
+		metadata.FormatVersion = v
 
 		enc := json.NewEncoder(mdBuf)
 
@@ -798,14 +819,14 @@ var loadCmd = &cobra.Command{
 				return
 			}
 
-			encData, ok := sections["encBackupData"]
+			encData, ok := sections["data"]
 
 			if !ok {
 				fmt.Println("DB file is corrupt [no backup data]")
 				return
 			}
 
-			enc, ok := meta.EncryptionData["encBackupData"]
+			enc, ok := meta.EncryptionData["data"]
 
 			var decrData *bytes.Buffer
 			if ok {
@@ -1277,7 +1298,7 @@ var genCiSchemaCmd = &cobra.Command{
 	Use:   "gen-ci-schema <path>",
 	Short: "Generates a seed-ci.json file for use in CI",
 	Long:  "Generates a seed-ci.json file for use in CI",
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Generate schema for CI
 		ctx := context.Background()
@@ -1295,14 +1316,7 @@ var genCiSchemaCmd = &cobra.Command{
 			return
 		}
 
-		path := path + "/seed-ci.json"
-
-		if len(args) > 0 {
-			path = args[0]
-		}
-
-		// Dump schema to JSON file named "seed-ci.json"
-		schemaFile, err := os.Create(path)
+		schemaFile, err := os.Create(args[0])
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to create schema file:", err)
