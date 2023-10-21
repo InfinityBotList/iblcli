@@ -975,11 +975,11 @@ func init() {
 	iblfile.RegisterFormat(
 		"db",
 		&iblfile.Format{
-			Format:  "db.backup",
+			Format:  "backup",
 			Version: "a1",
 		},
 		&iblfile.Format{
-			Format:  "db.seed",
+			Format:  "seed",
 			Version: "a1",
 			GetExtended: func(sections map[string]*bytes.Buffer, meta *iblfile.Meta) (map[string]any, error) {
 				seedMetaBuf, ok := sections["seed_meta"]
@@ -1004,7 +1004,7 @@ func init() {
 			},
 		},
 		&iblfile.Format{
-			Format:  "db.staging",
+			Format:  "staging",
 			Version: "a1",
 		},
 	)
