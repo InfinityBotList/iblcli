@@ -69,18 +69,20 @@ var infoCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		extendedMeta, err := format.GetExtended(sections, meta)
+		if format.GetExtended != nil {
+			extendedMeta, err := format.GetExtended(sections, meta)
 
-		if err != nil {
-			fmt.Println("ERROR:", err)
-			os.Exit(1)
-		}
+			if err != nil {
+				fmt.Println("ERROR:", err)
+				os.Exit(1)
+			}
 
-		fmt.Println("\n== Extended Info ==")
+			fmt.Println("\n== Extended Info ==")
 
-		for k, v := range extendedMeta {
-			// If v is a struct marshal it into newline seperated key: value format
-			fmt.Println(k+":", v)
+			for k, v := range extendedMeta {
+				// If v is a struct marshal it into newline seperated key: value format
+				fmt.Println(k+":", v)
+			}
 		}
 	},
 }
