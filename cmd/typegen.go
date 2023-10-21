@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	"github.com/InfinityBotList/ibl/internal/api"
-	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/projectconfig"
 	"github.com/InfinityBotList/ibl/internal/ui"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
@@ -180,8 +178,6 @@ var goTypeGen = &cobra.Command{
 }
 
 func init() {
-	if devmode.DevMode().Allows(types.DevModeLocal) {
-		rootCmd.AddCommand(typegenCmd)
-		rootCmd.AddCommand(goTypeGen)
-	}
+	rootCmd.AddCommand(typegenCmd)
+	rootCmd.AddCommand(goTypeGen)
 }

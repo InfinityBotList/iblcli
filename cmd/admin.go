@@ -3,12 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 
-	"github.com/InfinityBotList/ibl/internal/devmode"
-	"github.com/InfinityBotList/ibl/internal/links"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
@@ -95,28 +90,6 @@ var remExpCommand = &cobra.Command{
 	},
 }
 
-var remoteCmd = &cobra.Command{
-	Use:     "remote",
-	Short:   "SSH into the VPS",
-	Long:    `SSH into the VPS`,
-	Aliases: []string{"rem", "ssh", "r"},
-	Run: func(cmd *cobra.Command, args []string) {
-		vps := links.GetVpsSSH()
-
-		sshCmd := exec.Command("ssh", vps)
-
-		sshCmd.Stdin = cmd.InOrStdin()
-		sshCmd.Stdout = cmd.OutOrStdout()
-
-		err := sshCmd.Run()
-
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	},
-}
-
 // adminCmd represents the admin command
 var adminCmd = &cobra.Command{
 	Use:   "admin",
@@ -125,14 +98,7 @@ var adminCmd = &cobra.Command{
 }
 
 func init() {
-	if devmode.DevMode().Allows(types.DevModeFull) {
-		adminCmd.AddCommand(addExpCommand)
-		adminCmd.AddCommand(remExpCommand)
-	}
-
-	if devmode.DevMode().Allows(types.DevModeLocal) {
-		adminCmd.AddCommand(remoteCmd)
-
-		rootCmd.AddCommand(adminCmd)
-	}
+	adminCmd.AddCommand(addExpCommand)
+	adminCmd.AddCommand(remExpCommand)
+	rootCmd.AddCommand(adminCmd)
 }

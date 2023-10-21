@@ -12,11 +12,9 @@ import (
 	"time"
 
 	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
-	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/downloader"
 	"github.com/InfinityBotList/ibl/internal/iblfile"
 	"github.com/InfinityBotList/ibl/internal/links"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -37,8 +35,7 @@ type SeedMetadata struct {
 // newCmd represents the new command
 var newCmd = &cobra.Command{
 	Use:   "new <type> <output>",
-	Short: "Creates a new database file. Either 'seed' or 'backup'",
-	Long:  `Creates a new database file. Either 'seed' or 'backup'`,
+	Short: "Creates a new database file. One of seed/backup/staging",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fileType := args[0]
@@ -222,6 +219,256 @@ var newCmd = &cobra.Command{
 				fmt.Println("ERROR: Failed to write seed-specific meta to tar file:", err)
 				os.Exit(1)
 			}
+		case "staging":
+			dbName := cmd.Flag("db").Value.String()
+
+			if dbName == "" {
+				fmt.Println("ERROR: You must specify a database to backup!")
+				os.Exit(1)
+			}
+
+			createSanitizedDb := func() (*bytes.Buffer, error) {
+				ctx := context.Background()
+
+				sanitizeCode := map[string]func(conn *pgx.Conn) error{
+					"infinity": func(conn *pgx.Conn) error {
+						sqlCmds := []string{
+							"DELETE FROM webhooks",
+							"UPDATE users SET api_token = uuid_generate_v4()::text",
+							"UPDATE bots SET api_token = uuid_generate_v4()::text",
+							"UPDATE servers SET api_token = uuid_generate_v4()::text",
+						}
+
+						for _, c := range sqlCmds {
+							fmt.Println("[psql, copyDb] =>", c)
+
+							_, err := conn.Exec(ctx, c)
+
+							if err != nil {
+								return fmt.Errorf("failed to execute sql command: %w", err)
+							}
+						}
+
+						return nil
+					},
+				}
+
+				fmt.Println("NOTE: Creating unsanitized database backup in memory")
+
+				var buf = bytes.NewBuffer([]byte{})
+				backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
+				backupCmd.Env = os.Environ()
+				backupCmd.Stdout = buf
+
+				err := backupCmd.Run()
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to create db backup: %w", err)
+				}
+
+				if buf.Len() == 0 {
+					return nil, fmt.Errorf("database backup is empty")
+				}
+
+				sanitizer, ok := sanitizeCode[dbName]
+
+				if !ok {
+					fmt.Println("WARNING: No sanitization task for database", dbName)
+					return buf, nil
+				}
+
+				// Make copy (__dbcopy) using created db backup on source server
+				fmt.Println("Creating copy of database on source server with name '" + dbName + "__dbcopy'")
+
+				copyDbName := dbName + "__dbcopy"
+
+				conn, err := pgx.Connect(ctx, "postgres:///"+dbName)
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to acquire database conn: %w", err)
+				}
+
+				sqlCmds := []string{
+					"DROP DATABASE IF EXISTS " + copyDbName,
+					"CREATE DATABASE " + copyDbName,
+				}
+
+				for _, c := range sqlCmds {
+					fmt.Println("[psql, origDb] =>", c)
+					_, err = conn.Exec(ctx, c)
+
+					if err != nil {
+						return nil, fmt.Errorf("failed to execute sql command: %w", err)
+					}
+				}
+
+				err = conn.Close(ctx)
+
+				if err != nil {
+					fmt.Println("WARNING: Failed to close conn:", err)
+				}
+
+				conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to acquire copy database conn: %w", err)
+				}
+
+				sqlCmds = []string{
+					"CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
+					"CREATE EXTENSION IF NOT EXISTS \"citext\"",
+				}
+
+				for _, c := range sqlCmds {
+					fmt.Println("[psql, copyDb] =>", c)
+
+					_, err = conn.Exec(ctx, c)
+
+					if err != nil {
+						return nil, fmt.Errorf("failed to execute sql command: %w", err)
+					}
+				}
+
+				err = conn.Close(ctx)
+
+				if err != nil {
+					fmt.Println("WARNING: Failed to close conn:", err)
+				}
+
+				restoreCmd := exec.Command("pg_restore", "-d", copyDbName)
+				restoreCmd.Env = os.Environ()
+				restoreCmd.Stdout = os.Stdout
+				restoreCmd.Stderr = os.Stderr
+				restoreCmd.Stdin = buf
+
+				err = restoreCmd.Run()
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to restore db backup: %w", err)
+				}
+
+				defer func() {
+					cleanup := func() error {
+						// Delete copy (__dbcopy) on source server
+						fmt.Println("CLEANUP: Deleting copy of database on source server with name '" + copyDbName + "'")
+
+						conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
+
+						if err != nil {
+							return fmt.Errorf("failed to acquire database conn: %w", err)
+						}
+
+						_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+copyDbName)
+
+						if err != nil {
+							return fmt.Errorf("failed to drop copy database: %w", err)
+						}
+
+						err = conn.Close(ctx)
+
+						if err != nil {
+							fmt.Println("WARNING: Failed to close conn:", err)
+						}
+
+						return nil
+					}
+
+					err := cleanup()
+
+					if err != nil {
+						fmt.Println(err)
+						fmt.Println("FATAL: Cleanup task to delete '"+copyDbName+"' has failed! Please do so manually.\nError:", err)
+						return
+					}
+				}()
+
+				fmt.Println("Sanitizing copied database")
+
+				conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to acquire copy database conn: %w", err)
+				}
+
+				err = sanitizer(conn)
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to sanitize database: %w", err)
+				}
+
+				fmt.Println("NOTE: Creating sanitized database backup in memory")
+
+				var sanitizedBuf = bytes.NewBuffer([]byte{})
+				backupCmd = exec.Command("pg_dump", "-Fc", "-d", copyDbName)
+				backupCmd.Env = os.Environ()
+				backupCmd.Stdout = sanitizedBuf
+
+				err = backupCmd.Run()
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to create db backup: %w", err)
+				}
+
+				if sanitizedBuf.Len() == 0 {
+					return nil, fmt.Errorf("sanitized database backup is empty")
+				}
+
+				return sanitizedBuf, nil
+			}
+
+			pubKeyFile := cmd.Flag("pubkey").Value.String()
+
+			if pubKeyFile != "" {
+				pubKeyFileContents, err := os.ReadFile(pubKeyFile)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to read specified public key file:", err)
+					os.Exit(1)
+				}
+
+				encMap, encDataMap, err := iblfile.EncryptSections(
+					iblfile.DataEncrypt{
+						Section: "data",
+						Data:    createSanitizedDb,
+						Pubkey:  pubKeyFileContents,
+					},
+				)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to encrypt data:", err)
+					os.Exit(1)
+				}
+
+				metadata = iblfile.Meta{
+					EncryptionData: encDataMap,
+				}
+
+				for sectionName, encData := range encMap {
+					err = file.WriteSection(encData, sectionName)
+
+					if err != nil {
+						fmt.Println("ERROR: Failed to write section", sectionName, "to tar file:", err)
+						os.Exit(1)
+					}
+				}
+			} else {
+				fmt.Println("NOTE: No public key specified, will not encrypt database backup")
+
+				backupBuf, err := createSanitizedDb()
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to create sanitized database backup:", err)
+					os.Exit(1)
+				}
+
+				err = file.WriteSection(backupBuf, "data")
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to write database backup to tar file:", err)
+					os.Exit(1)
+				}
+			}
+
 		default:
 			fmt.Println("ERROR: Invalid type:", fileType)
 			os.Exit(1)
@@ -233,14 +480,14 @@ var newCmd = &cobra.Command{
 		metadata.Protocol = iblfile.Protocol
 		metadata.Type = fileType
 
-		v, ok := iblfile.FormatVersionMap[fileType]
+		f := iblfile.GetFormat(fileType)
 
-		if !ok {
-			fmt.Println("ERROR: Internal error: format has no version", fileType)
+		if f == nil {
+			fmt.Println("ERROR: Internal error: format is not registered:", fileType)
 			os.Exit(1)
 		}
 
-		metadata.FormatVersion = v
+		metadata.FormatVersion = f.Version
 
 		enc := json.NewEncoder(mdBuf)
 
@@ -273,74 +520,6 @@ var newCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("ERROR: Failed to write file:", err)
 			os.Exit(1)
-		}
-	},
-}
-
-var infoCmd = &cobra.Command{
-	Use:   "info",
-	Short: "Gets info about a ibl db file",
-	Long:  `Gets info about a ibl db file`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		showPubKey := cmd.Flag("show-pubkey").Value.String() == "true"
-
-		filename := args[0]
-
-		f, err := os.Open(filename)
-
-		if err != nil {
-			fmt.Println("ERROR: Failed to open file:", err)
-			os.Exit(1)
-		}
-
-		defer f.Close()
-
-		sections, meta, err := iblfile.ParseData(f)
-
-		if err != nil {
-			fmt.Println("ERROR:", err)
-			os.Exit(1)
-		}
-
-		switch meta.Type {
-		case "seed":
-			seedMetaBuf, ok := sections["seed_meta"]
-
-			if !ok {
-				fmt.Println("Seed file is corrupt [no seed meta]")
-				return
-			}
-
-			var smeta SeedMetadata
-
-			err = json.NewDecoder(seedMetaBuf).Decode(&smeta)
-
-			if err != nil {
-				fmt.Println("WARNING: Seed file is corrupt [invalid seed meta]")
-				return
-			}
-
-			fmt.Println("\n== Seed Info ==")
-			fmt.Println("Nonce:", smeta.Nonce)
-			fmt.Println("Default Database:", smeta.DefaultDatabase)
-			fmt.Println("Source Database:", smeta.SourceDatabase)
-		}
-
-		fmt.Println("\n== Extra Info ==")
-		if len(meta.EncryptionData) > 0 {
-			fmt.Println("File contains encrypted sections")
-
-			for sectionName, enc := range meta.EncryptionData {
-				fmt.Println("\n=> Encrypted section '" + sectionName + "'")
-
-				if showPubKey {
-					fmt.Print("Public Key:\n")
-					fmt.Print(string(enc.PEM))
-				}
-			}
-		} else {
-			fmt.Println("File is not encrypted")
 		}
 	},
 }
@@ -631,278 +810,116 @@ var loadCmd = &cobra.Command{
 				fmt.Println("ERROR: Failed to insert seed info:", err)
 				os.Exit(1)
 			}
-		}
-	},
-}
+		case "db.staging":
+			privKeyFile := cmd.Flag("priv-key").Value.String()
 
-// copyDb represents the copydb command
-var copyDb = &cobra.Command{
-	Use:   "copydb <database> <targetServer>",
-	Short: "Copies a database from current server to target server. User must currently be on current server",
-	Long:  `Copies a database from current server to target server. User must currently be on current server`,
-	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		defer func() {
-			fmt.Println("Cleaning up...")
+			dbName := cmd.Flag("db").Value.String()
 
-			// delete all files in work directory
-			err := os.RemoveAll("work")
-
-			if err != nil {
-				fmt.Println("Error cleaning up:", err)
+			if dbName == "" {
+				fmt.Println("ERROR: You must specify a database to restore the backup to!")
+				os.Exit(1)
 			}
-		}()
 
-		ctx := context.Background()
-
-		dbName := args[1]
-
-		// create a work directory
-		err := os.Mkdir("work", 0755)
-
-		if err != nil {
-			fmt.Println("Error creating work directory:", err)
-			return
-		}
-
-		fmt.Println("Creating unsanitized database backup in memory")
-
-		var buf = bytes.NewBuffer([]byte{})
-		backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
-		backupCmd.Env = os.Environ()
-		backupCmd.Stdout = buf
-
-		err = backupCmd.Run()
-
-		if err != nil {
-			fmt.Println("Error when creating db backup", err)
-			return
-		}
-
-		if buf.Len() == 0 {
-			fmt.Println("ERROR: Database backup is empty!")
-			return
-		}
-
-		// Make copy (__dbcopy) using created db backup on source server
-		fmt.Println("Creating copy of database on source server with name '" + dbName + "__dbcopy'")
-
-		copyDbName := dbName + "__dbcopy"
-
-		conn, err := pgx.Connect(ctx, "postgres:///"+dbName)
-
-		if err != nil {
-			fmt.Println("Failed to acquire database conn:", err)
-			return
-		}
-
-		sqlCmds := []string{
-			"DROP DATABASE IF EXISTS " + copyDbName,
-			"CREATE DATABASE " + copyDbName,
-		}
-
-		for _, c := range sqlCmds {
-			fmt.Println("[psql, origDb] =>", c)
-			_, err = conn.Exec(ctx, c)
-
-			if err != nil {
-				fmt.Println("Failed to execute sql command:", err)
-				return
-			}
-		}
-
-		err = conn.Close(ctx)
-
-		if err != nil {
-			fmt.Println("WARNING: Failed to close conn:", err)
-		}
-
-		conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
-
-		if err != nil {
-			fmt.Println("Failed to acquire copy database conn:", err)
-			return
-		}
-
-		sqlCmds = []string{
-			"CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
-			"CREATE EXTENSION IF NOT EXISTS \"citext\"",
-		}
-
-		for _, c := range sqlCmds {
-			fmt.Println("[psql, copyDb] =>", c)
-
-			_, err = conn.Exec(ctx, c)
-
-			if err != nil {
-				fmt.Println("Failed to execute sql command:", err)
-				return
-			}
-		}
-
-		err = conn.Close(ctx)
-
-		if err != nil {
-			fmt.Println("WARNING: Failed to close conn:", err)
-		}
-
-		restoreCmd := exec.Command("pg_restore", "-d", copyDbName)
-		restoreCmd.Env = os.Environ()
-		restoreCmd.Stdout = os.Stdout
-		restoreCmd.Stderr = os.Stderr
-		restoreCmd.Stdin = buf
-
-		err = restoreCmd.Run()
-
-		if err != nil {
-			fmt.Println("Error when restoring db backup", err)
-			return
-		}
-
-		defer func() {
-			cleanup := func() error {
-				// Delete copy (__dbcopy) on source server
-				fmt.Println("CLEANUP: Deleting copy of database on source server with name '" + copyDbName + "'")
-
-				conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
+			var privKeyFileContents []byte
+			if privKeyFile != "" {
+				privKeyFileContents, err = os.ReadFile(privKeyFile)
 
 				if err != nil {
-					return fmt.Errorf("failed to acquire database conn: %w", err)
+					fmt.Println("ERROR: Failed to read private key file:", err)
+					os.Exit(1)
 				}
+			}
 
-				_, err = conn.Exec(ctx, "DROP DATABASE IF EXISTS "+copyDbName)
+			encData, ok := sections["data"]
+
+			if !ok {
+				fmt.Println("ERROR: DB file is corrupt [no backup data]")
+				os.Exit(1)
+			}
+
+			enc, ok := meta.EncryptionData["data"]
+
+			if ok && privKeyFile == "" {
+				fmt.Println("ERROR: This staging backup is encrypted. You must provide a private key to decrypt with!")
+				os.Exit(1)
+			}
+
+			var decrData *bytes.Buffer
+			if ok {
+				decrData, err = iblfile.DecryptData(encData, enc, privKeyFileContents)
 
 				if err != nil {
-					return fmt.Errorf("failed to drop copy database: %w", err)
+					fmt.Println("ERROR: Failed to decrypt data:", err)
+					os.Exit(1)
 				}
-
-				err = conn.Close(ctx)
-
-				if err != nil {
-					fmt.Println("WARNING: Failed to close conn:", err)
-				}
-
-				return nil
+			} else {
+				fmt.Println("WARNING: Backup data is not encrypted!")
+				decrData = encData
 			}
 
-			err := cleanup()
+			ctx := context.Background()
+
+			prodMarkerName := dbName + "__prodmarker"
+
+			sqlCmds := []string{
+				"DROP DATABASE IF EXISTS " + dbName,
+				"CREATE DATABASE " + dbName,
+				"DROP DATABASE IF EXISTS " + prodMarkerName,
+				"CREATE DATABASE " + prodMarkerName,
+			}
+
+			conn, err := pgx.Connect(ctx, "postgres:///")
 
 			if err != nil {
-				fmt.Println(err)
-				fmt.Println("FATAL: Cleanup task to delete '"+copyDbName+"' has failed! Please do so manually.\nError:", err)
-				return
-			}
-		}()
-
-		fmt.Println("Sanitizing copied database")
-
-		switch dbName {
-		case "infinity":
-			conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
-
-			if err != nil {
-				fmt.Println("Failed to acquire copy database conn:", err)
-				return
-			}
-
-			sqlCmds = []string{
-				"DELETE FROM webhooks",
-				"UPDATE users SET api_token = uuid_generate_v4()::text",
-				"UPDATE bots SET api_token = uuid_generate_v4()::text",
-				"UPDATE servers SET api_token = uuid_generate_v4()::text",
+				fmt.Println("ERROR: Failed to acquire database conn:", err)
+				os.Exit(1)
 			}
 
 			for _, c := range sqlCmds {
-				fmt.Println("[psql, copyDb] =>", c)
-
+				fmt.Println("[psql, origDb] =>", c)
 				_, err = conn.Exec(ctx, c)
 
 				if err != nil {
-					fmt.Println("Failed to execute sql command:", err)
-					return
+					fmt.Println("ERROR: Failed to execute sql command:", err)
+					os.Exit(1)
 				}
 			}
-		default:
-			fmt.Println("WARNING: No sanitization task for database", dbName)
-		}
 
-		fmt.Println("Creating sanitized database backup as work/schema.sql")
-
-		backupCmd = exec.Command("pg_dump", "-Fc", "-d", copyDbName, "-f", "work/schema.sql")
-
-		backupCmd.Env = os.Environ()
-
-		err = backupCmd.Run()
-
-		if err != nil {
-			fmt.Println("Error when creating db backup", err)
-			return
-		}
-
-		fmt.Println("Copying file to target server")
-
-		cpCmd := exec.Command("scp", "work/schema.sql", fmt.Sprintf("root@%s:/tmp/schema.sql", args[0]))
-		cpCmd.Env = os.Environ()
-		err = cpCmd.Run()
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		prodMarkerName := dbName + "__prodmarker"
-
-		cmds := [][]string{
-			{
-				"psql", "-c", "'DROP DATABASE IF EXISTS " + dbName + "'",
-			},
-			{
-				"psql", "-c", "'CREATE DATABASE " + dbName + "'",
-			},
-			{
-				"psql", "-d", dbName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
-			},
-			{
-				"psql", "-d", dbName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
-			},
-			{
-				"pg_restore", "-d", dbName, "/tmp/schema.sql",
-			},
-			{
-				"psql", "-c", "'DROP DATABASE IF EXISTS " + prodMarkerName,
-			},
-			{
-				"psql", "-c", "'CREATE DATABASE " + prodMarkerName,
-			},
-			{
-				"psql", "-d", prodMarkerName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"'",
-			},
-			{
-				"psql", "-d", prodMarkerName, "-c", "'CREATE EXTENSION IF NOT EXISTS \"citext\"'",
-			},
-			{
-				"pg_restore", "-d", prodMarkerName, "/tmp/schema.sql",
-			},
-			{
-				"rm", "/tmp/schema.sql",
-			},
-		}
-
-		for _, c := range cmds {
-			fmt.Println("(ssh) =>", strings.Join(c, " "))
-
-			cmd := exec.Command("ssh", args[0], strings.Join(c, " "))
-
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = os.Environ()
-
-			err = cmd.Run()
+			err = conn.Close(ctx)
 
 			if err != nil {
-				fmt.Println(err)
-				return
+				fmt.Println("WARNING: Failed to close conn:", err)
 			}
+
+			// Restore dump to dbName and prodMarkerName
+			backupCmd := exec.Command("pg_restore", "-d", dbName)
+			backupCmd.Stdout = os.Stdout
+			backupCmd.Stderr = os.Stderr
+			backupCmd.Env = os.Environ()
+			backupCmd.Stdin = decrData
+
+			err = backupCmd.Run()
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to restore database backup with error:", err)
+				os.Exit(1)
+			}
+
+			backupCmd = exec.Command("pg_restore", "-d", prodMarkerName)
+			backupCmd.Stdout = os.Stdout
+			backupCmd.Stderr = os.Stderr
+			backupCmd.Env = os.Environ()
+			backupCmd.Stdin = decrData
+
+			err = backupCmd.Run()
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to restore database backup to prodmarker with error:", err)
+				os.Exit(1)
+			}
+		default:
+			fmt.Println("ERROR: Invalid type:", meta.Type)
+			os.Exit(1)
 		}
 	},
 }
@@ -955,12 +972,42 @@ var dbCmd = &cobra.Command{
 }
 
 func init() {
-	iblfile.FormatVersionMap["db.backup"] = "a1"
-	iblfile.FormatVersionMap["db.seed"] = "a1"
+	iblfile.RegisterFormat(
+		"db",
+		&iblfile.Format{
+			Format:  "db.backup",
+			Version: "a1",
+		},
+		&iblfile.Format{
+			Format:  "db.seed",
+			Version: "a1",
+			GetExtended: func(sections map[string]*bytes.Buffer, meta *iblfile.Meta) (map[string]any, error) {
+				seedMetaBuf, ok := sections["seed_meta"]
 
-	infoCmd.PersistentFlags().Bool("show-pubkey", false, "Whether or not to show the public key for the encrypted data")
+				if !ok {
+					return nil, fmt.Errorf("no seed metadata found")
+				}
 
-	copyDb.PersistentFlags().String("db", "", "The database to copy from")
+				var smeta SeedMetadata
+
+				err := json.NewDecoder(seedMetaBuf).Decode(&smeta)
+
+				if err != nil {
+					return nil, fmt.Errorf("seed metadata is invalid: %w", err)
+				}
+
+				return map[string]any{
+					"Nonce":           smeta.Nonce,
+					"DefaultDatabase": smeta.DefaultDatabase,
+					"SourceDatabase":  smeta.SourceDatabase,
+				}, nil
+			},
+		},
+		&iblfile.Format{
+			Format:  "db.staging",
+			Version: "a1",
+		},
+	)
 
 	loadCmd.PersistentFlags().String("priv-key", "", "The private key to decrypt the backup with [backup only]")
 	loadCmd.PersistentFlags().String("db", "", "If type is backup, the database to restore the backup to (backup) or the database name to seed to (seed).")
@@ -970,13 +1017,8 @@ func init() {
 	newCmd.PersistentFlags().String("db", "", "If type is backup, the database to backup to (backup) or the database name to seed from (seed).")
 	newCmd.PersistentFlags().String("backup-tables", "", "The tables to fully backup in the seed [seed only]")
 
-	if devmode.DevMode().Allows(types.DevModeFull) {
-		dbCmd.AddCommand(infoCmd)
-		dbCmd.AddCommand(genCiSchemaCmd)
-		dbCmd.AddCommand(newCmd)
-	}
-
+	dbCmd.AddCommand(genCiSchemaCmd)
+	dbCmd.AddCommand(newCmd)
 	dbCmd.AddCommand(loadCmd)
-
 	rootCmd.AddCommand(dbCmd)
 }

@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/InfinityBotList/ibl/internal/api"
-	"github.com/InfinityBotList/ibl/internal/devmode"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -82,7 +80,6 @@ var genEnumsCmd = &cobra.Command{
 }
 
 func init() {
-	if devmode.DevMode().Allows(types.DevModeFull) {
-		rootCmd.AddCommand(genEnumsCmd)
-	}
+	rootCmd.AddCommand(genEnumsCmd)
+
 }

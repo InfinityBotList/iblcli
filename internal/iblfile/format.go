@@ -200,14 +200,14 @@ func ParseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
-		v, ok := FormatVersionMap[metadata.Type]
+		f := GetFormat(metadata.Type)
 
-		if !ok {
-			return nil, nil, fmt.Errorf("invalid type: %s", metadata.Type)
+		if f == nil {
+			return nil, nil, fmt.Errorf("unknown format: %s", metadata.Type)
 		}
 
-		if metadata.FormatVersion != v {
-			return nil, nil, fmt.Errorf("this %s uses format version %s, but this version of the tool only supports version %s", metadata.Type, metadata.FormatVersion, v)
+		if metadata.FormatVersion != f.Version {
+			return nil, nil, fmt.Errorf("this %s uses format version %s, but this version of the tool only supports version %s", metadata.Type, metadata.FormatVersion, f.Version)
 		}
 
 		fmt.Println("")

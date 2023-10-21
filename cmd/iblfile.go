@@ -20,6 +20,70 @@ var iblFileCmd = &cobra.Command{
 	Long:  "Retrieve information about an IBL file",
 }
 
+var infoCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Gets info about a ibl file",
+	Long:  `Gets info about a ibl file`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		showPubKey := cmd.Flag("show-pubkey").Value.String() == "true"
+
+		filename := args[0]
+
+		f, err := os.Open(filename)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to open file:", err)
+			os.Exit(1)
+		}
+
+		defer f.Close()
+
+		sections, meta, err := iblfile.ParseData(f)
+
+		if err != nil {
+			fmt.Println("ERROR:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n== Extra Info ==")
+		if len(meta.EncryptionData) > 0 {
+			fmt.Println("File contains encrypted sections")
+
+			for sectionName, enc := range meta.EncryptionData {
+				fmt.Println("\n=> Encrypted section '" + sectionName + "'")
+
+				if showPubKey {
+					fmt.Print("Public Key:\n")
+					fmt.Print(string(enc.PEM))
+				}
+			}
+		} else {
+			fmt.Println("File is not encrypted")
+		}
+
+		format := iblfile.GetFormat(meta.Type)
+
+		if format != nil {
+			extendedMeta, err := format.GetExtended(sections, meta)
+
+			if err != nil {
+				fmt.Println("ERROR:", err)
+				os.Exit(1)
+			}
+
+			fmt.Println("\n== Extended Info ==")
+			
+			for k, v := range extendedMeta {
+				// If v is a struct marshal it into newline seperated key: value format
+				fmt.Println(k+":", v) 
+			}
+		} else {
+			fmt.Println("WARNING: Unknown/unregistered format:", meta.Type)
+		}
+	},
+}
+
 var iblFileUpgrade = &cobra.Command{
 	Use:   "upgrade <input file> <output file>",
 	Short: "Upgrade a file protocol version where possible",
@@ -159,6 +223,9 @@ var iblFileUpgrade = &cobra.Command{
 }
 
 func init() {
+	infoCmd.PersistentFlags().Bool("show-pubkey", false, "Whether or not to show the public key for the encrypted data")
+
+	iblFileCmd.AddCommand(infoCmd)
 	iblFileCmd.AddCommand(iblFileUpgrade)
 	rootCmd.AddCommand(iblFileCmd)
 }

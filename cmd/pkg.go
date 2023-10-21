@@ -5,10 +5,8 @@ import (
 	"os"
 
 	"github.com/InfinityBotList/ibl/internal/agents/buildpkg"
-	"github.com/InfinityBotList/ibl/internal/devmode"
 	"github.com/InfinityBotList/ibl/internal/projectconfig"
 	"github.com/InfinityBotList/ibl/internal/ui"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +57,5 @@ var pkgCmd = &cobra.Command{
 }
 
 func init() {
-	if devmode.DevMode().Allows(types.DevModeLocal) {
-		rootCmd.AddCommand(pkgCmd)
-	}
+	rootCmd.AddCommand(pkgCmd)
 }

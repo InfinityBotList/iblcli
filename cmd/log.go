@@ -4,10 +4,9 @@ Copyright © 2022 Infinity Bot List
 package cmd
 
 import (
+	"fmt"
 	"os/exec"
 
-	"github.com/InfinityBotList/ibl/internal/devmode"
-	"github.com/InfinityBotList/ibl/types"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +18,13 @@ var logCmd = &cobra.Command{
 	Aliases: []string{"logs"},
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Ensure that systemctl exists
+		_, err := exec.LookPath("journalctl")
+
+		if err != nil {
+			fmt.Println("ERROR: journalctl not found. Please ensure that you are using systemd.")
+		}
+
 		// journalctl -u $1 -n 300 -f
 		lines := cmd.Flag("lines").Value.String()
 		begin := cmd.Flag("begin").Value.String()
@@ -47,9 +53,8 @@ var logCmd = &cobra.Command{
 }
 
 func init() {
-	if devmode.DevMode().Allows(types.DevModeFull) {
-		rootCmd.AddCommand(logCmd)
-		logCmd.Flags().StringP("lines", "l", "300", "Number of lines to show")
-		logCmd.Flags().BoolP("begin", "b", false, "Start at beginning of log")
-	}
+	rootCmd.AddCommand(logCmd)
+	logCmd.Flags().StringP("lines", "l", "300", "Number of lines to show")
+	logCmd.Flags().BoolP("begin", "b", false, "Start at beginning of log")
+
 }
