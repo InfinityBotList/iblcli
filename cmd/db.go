@@ -897,12 +897,14 @@ var loadCmd = &cobra.Command{
 				fmt.Println("WARNING: Failed to close conn:", err)
 			}
 
+			decrDataBytes := decrData.Bytes()
+
 			// Restore dump to dbName and prodMarkerName
 			backupCmd := exec.Command("pg_restore", "-d", dbName)
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
 			backupCmd.Env = os.Environ()
-			backupCmd.Stdin = decrData
+			backupCmd.Stdin = bytes.NewBuffer(decrDataBytes)
 
 			err = backupCmd.Run()
 
@@ -915,7 +917,7 @@ var loadCmd = &cobra.Command{
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
 			backupCmd.Env = os.Environ()
-			backupCmd.Stdin = decrData
+			backupCmd.Stdin = bytes.NewBuffer(decrDataBytes)
 
 			err = backupCmd.Run()
 
