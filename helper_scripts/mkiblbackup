@@ -14,7 +14,7 @@ if [ -z "$2" ]; then
     exit 1
 fi
 
-DATE=$(date '+%Y%m%d%H%M%S')
+DATE=$(date '+%Y-%m-%d@%H:%M:%S')
 FILENAME=$1-${DATE}.iblcli-backup
 FILE=/tmp/${FILENAME}
 
