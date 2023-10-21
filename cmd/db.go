@@ -384,7 +384,7 @@ var newCmd = &cobra.Command{
 
 				fmt.Println("Sanitizing copied database")
 
-				conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
+				conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
 
 				if err != nil {
 					return nil, fmt.Errorf("failed to acquire copy database conn: %w", err)
@@ -394,6 +394,12 @@ var newCmd = &cobra.Command{
 
 				if err != nil {
 					return nil, fmt.Errorf("failed to sanitize database: %w", err)
+				}
+
+				err = conn.Close(ctx)
+
+				if err != nil {
+					fmt.Println("WARNING: Failed to close conn:", err)
 				}
 
 				fmt.Println("NOTE: Creating sanitized database backup in memory")

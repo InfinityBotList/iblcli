@@ -11,7 +11,7 @@ fi
 # Ensure $2 is set to the pubkey
 if [ -z "$2" ]; then
     echo "Usage: $0 <db_name> <pubkey>"
-    exit 1
+    exit 1ls
 fi
 
 DATE=$(date '+%Y-%m-%d@%H:%M:%S')
