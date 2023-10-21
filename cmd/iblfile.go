@@ -62,24 +62,25 @@ var infoCmd = &cobra.Command{
 			fmt.Println("File is not encrypted")
 		}
 
-		format := iblfile.GetFormat(meta.Type)
+		format, err := iblfile.GetFormat(meta.Type)
 
-		if format != nil {
-			extendedMeta, err := format.GetExtended(sections, meta)
+		if err != nil {
+			fmt.Println("WARNING: Unknown/unregistered format:", meta.Type, "due to error: ", err)
+			os.Exit(1)
+		}
 
-			if err != nil {
-				fmt.Println("ERROR:", err)
-				os.Exit(1)
-			}
+		extendedMeta, err := format.GetExtended(sections, meta)
 
-			fmt.Println("\n== Extended Info ==")
-			
-			for k, v := range extendedMeta {
-				// If v is a struct marshal it into newline seperated key: value format
-				fmt.Println(k+":", v) 
-			}
-		} else {
-			fmt.Println("WARNING: Unknown/unregistered format:", meta.Type)
+		if err != nil {
+			fmt.Println("ERROR:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n== Extended Info ==")
+
+		for k, v := range extendedMeta {
+			// If v is a struct marshal it into newline seperated key: value format
+			fmt.Println(k+":", v)
 		}
 	},
 }

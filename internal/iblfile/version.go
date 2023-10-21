@@ -2,6 +2,7 @@ package iblfile
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -16,11 +17,11 @@ func RegisterFormat(ns string, formats ...*Format) {
 	FormatVersionMap[ns] = append(FormatVersionMap[ns], formats...)
 }
 
-func GetFormat(format string) *Format {
+func GetFormat(format string) (*Format, error) {
 	splitFormat := strings.Split(format, ".")
 
 	if len(splitFormat) < 2 {
-		return nil
+		return nil, fmt.Errorf("format does not have a namespace: %s", format)
 	}
 
 	ns := splitFormat[0]
@@ -29,16 +30,16 @@ func GetFormat(format string) *Format {
 	fvns, ok := FormatVersionMap[ns]
 
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("namespace not found: %s", ns)
 	}
 
 	for _, fv := range fvns {
 		if fv.Format == name {
-			return fv
+			return fv, nil
 		}
 	}
 
-	return nil
+	return nil, fmt.Errorf("format not found in namespace: %s", format)
 }
 
 func CondensedFormat(ns, format string) string {

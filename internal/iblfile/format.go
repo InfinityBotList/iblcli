@@ -200,10 +200,10 @@ func ParseData(data io.Reader) (map[string]*bytes.Buffer, *Meta, error) {
 		fmt.Println("Type:", metadata.Type)
 		fmt.Println("Created At:", metadata.CreatedAt)
 
-		f := GetFormat(metadata.Type)
+		f, err := GetFormat(metadata.Type)
 
 		if f == nil {
-			return nil, nil, fmt.Errorf("unknown format: %s", metadata.Type)
+			return nil, nil, fmt.Errorf("unknown format: %s %s", metadata.Type, err)
 		}
 
 		if metadata.FormatVersion != f.Version {

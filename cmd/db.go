@@ -480,10 +480,10 @@ var newCmd = &cobra.Command{
 		metadata.Protocol = iblfile.Protocol
 		metadata.Type = fileType
 
-		f := iblfile.GetFormat(fileType)
+		f, err := iblfile.GetFormat(fileType)
 
 		if f == nil {
-			fmt.Println("ERROR: Internal error: format is not registered:", fileType)
+			fmt.Println("ERROR: Internal error: format is not registered:", fileType, err)
 			os.Exit(1)
 		}
 
@@ -491,7 +491,7 @@ var newCmd = &cobra.Command{
 
 		enc := json.NewEncoder(mdBuf)
 
-		err := enc.Encode(metadata)
+		err = enc.Encode(metadata)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to write metadata:", err)
