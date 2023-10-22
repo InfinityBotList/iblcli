@@ -136,7 +136,7 @@ var newCmd = &cobra.Command{
 				defaultDatabase = dbName
 			}
 
-			fmt.Println("Creating database backup as schema.sql")
+			fmt.Println("Creating database backup in schema buffer")
 
 			var schemaBuf = bytes.NewBuffer([]byte{})
 			backupCmd := exec.Command("pg_dump", "-Fc", "--schema-only", "--no-owner", "-d", dbName)
@@ -384,7 +384,7 @@ var newCmd = &cobra.Command{
 
 				fmt.Println("Sanitizing copied database")
 
-				conn, err = pgx.Connect(ctx, "postgres:///"+dbName)
+				conn, err = pgx.Connect(ctx, "postgres:///"+copyDbName)
 
 				if err != nil {
 					return nil, fmt.Errorf("failed to acquire copy database conn: %w", err)
