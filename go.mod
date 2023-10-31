@@ -1,6 +1,6 @@
 module github.com/InfinityBotList/ibl
 
-go 1.19
+go 1.21.3
 
 require (
 	github.com/bwmarrin/discordgo v0.27.2-0.20230704233747-e39e715086d2
@@ -26,6 +26,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/infinitybotlist/iblfile v0.0.0-20231031053255-4d8e6758425e // indirect
 	github.com/invopop/yaml v0.2.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.1 // indirect
@@ -59,7 +60,7 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/fynelabs/selfupdate v0.2.0
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/infinitybotlist/eureka v0.0.0-20230730173342-cf616ab640d2
+	github.com/infinitybotlist/eureka v0.3.0
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/schollz/progressbar/v3 v3.13.1

@@ -13,8 +13,8 @@ import (
 
 	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
 	"github.com/InfinityBotList/ibl/internal/downloader"
-	"github.com/InfinityBotList/ibl/internal/iblfile"
 	"github.com/InfinityBotList/ibl/internal/links"
+	"github.com/infinitybotlist/iblfile"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"

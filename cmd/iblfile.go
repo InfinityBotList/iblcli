@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/iblfile"
+	"github.com/infinitybotlist/iblfile"
 	"github.com/spf13/cobra"
 )
 
