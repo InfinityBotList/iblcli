@@ -691,6 +691,7 @@ var loadCmd = &cobra.Command{
 
 			if !ok {
 				// No extensions needed
+				fmt.Println("NOTE: No extensions needed")
 				return nil
 			}
 
@@ -1043,7 +1044,7 @@ var loadCmd = &cobra.Command{
 					os.Exit(1)
 				}
 			} else {
-				fmt.Println("WARNING: Backup data is not encrypted!")
+				fmt.Println("WARNING: Staging backup data is not encrypted!")
 				decrData = encData
 			}
 
