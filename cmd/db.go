@@ -718,11 +718,12 @@ var loadCmd = &cobra.Command{
 
 				if strings.Contains(err.Error(), "not available") {
 					fmt.Println("ERROR: Extension", ext.Name, "cannot be loaded:", err)
-					fmt.Println("Trying to install it from the git repo:", ext.GitUrl)
 
 					if os.Getenv("SKIP_EXTENSION_INSTALL") == "true" {
 						os.Exit(1)
 					}
+
+					fmt.Println("Trying to install it from the git repo:", ext.GitUrl)
 
 					gitCmd := exec.Command("git", "clone", ext.GitUrl, ext.Name)
 
