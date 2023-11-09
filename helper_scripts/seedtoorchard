@@ -7,7 +7,7 @@ rm -rf /tmp/s.ibls
 ssh orchard "rm -rf /tmp/s.ibls"
 
 # Create the staging db
-su ibl -c "cd ~/ && ibl db new staging /tmp/s.ibls --db infinity --extensions uuid-ossp|citext|semver,https://github.com/theory/pg-semver"
+su ibl -c "cd ~/ && ibl db new staging /tmp/s.ibls --db infinity --extensions uuid-ossp\|citext\|semver,https://github.com/theory/pg-semver"
 scp /tmp/s.ibls orchard:/tmp/s.ibls
 
 # Load the staging db in orchard
