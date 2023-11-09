@@ -1047,6 +1047,13 @@ var loadCmd = &cobra.Command{
 				decrData = encData
 			}
 
+			err = tryHandlingExtensions(sections, meta, dbName)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to handle extensions:", err)
+				os.Exit(1)
+			}
+
 			ctx := context.Background()
 
 			prodMarkerName := dbName + "__prodmarker"
