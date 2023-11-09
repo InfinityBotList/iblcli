@@ -720,7 +720,7 @@ var loadCmd = &cobra.Command{
 						os.Exit(1)
 					}
 
-					gitCmd := exec.Command("git", "clone", ext.GitUrl)
+					gitCmd := exec.Command("git", "clone", ext.GitUrl, ext.Name)
 
 					gitCmd.Stdout = os.Stdout
 					gitCmd.Stderr = os.Stderr
