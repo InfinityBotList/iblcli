@@ -738,9 +738,16 @@ var loadCmd = &cobra.Command{
 						{"gmake", "installcheck"},
 					}
 
+					pwd, err := os.Getwd()
+
+					if err != nil {
+						return fmt.Errorf("failed to get pwd: %w", err)
+					}
+
 					for _, c := range cmds {
 						cmd := exec.Command(c[0], c[1:]...)
 
+						cmd.Dir = pwd + "/" + ext.Name
 						cmd.Stdout = os.Stdout
 						cmd.Stderr = os.Stderr
 						cmd.Env = os.Environ()
