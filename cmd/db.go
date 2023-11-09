@@ -708,6 +708,10 @@ var loadCmd = &cobra.Command{
 				// Check if extension exists on postgres
 				_, err = conn.Exec(context.Background(), "CREATE EXTENSION IF NOT EXISTS \""+ext.Name+"\"")
 
+				if err == nil {
+					continue
+				}
+
 				if strings.Contains(err.Error(), "not available") {
 					fmt.Println("ERROR: Extension", ext.Name, "cannot be loaded:", err)
 					fmt.Println("Trying to install it from the git repo:", ext.GitUrl)
