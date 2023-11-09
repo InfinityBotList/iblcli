@@ -14,8 +14,8 @@ import (
 	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
 	"github.com/InfinityBotList/ibl/internal/downloader"
 	"github.com/InfinityBotList/ibl/internal/links"
-	"github.com/infinitybotlist/iblfile"
 	"github.com/infinitybotlist/eureka/crypto"
+	"github.com/infinitybotlist/iblfile"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
@@ -30,6 +30,22 @@ type SeedMetadata struct {
 
 	// Source database name
 	SourceDatabase string `json:"s"`
+}
+
+// Extensions needed. If a git repo is provided under the extensions key,
+// there will be an attempt to install the extensions from the git repo
+//
+// If a git repo is provided, the following will be run:
+//
+// - gmake
+// - gmake install
+// - gmake installcheck
+type Extension struct {
+	// The name of the extension
+	Name string `json:"name"`
+
+	// Git URL if any
+	GitUrl string `json:"git,omitempty"`
 }
 
 // newCmd represents the new command
@@ -56,6 +72,38 @@ var newCmd = &cobra.Command{
 
 		// Create a tar file as a io.Writer, NOT a file
 		file := iblfile.New()
+
+		parseExtensions := func() []Extension {
+			extensions := []Extension{}
+
+			extensionStr := cmd.Flag("extensions").Value.String()
+
+			if extensionStr == "" {
+				return extensions
+			}
+
+			extensionStrs := strings.Split(extensionStr, "|")
+
+			for _, ext := range extensionStrs {
+				extParts := strings.Split(ext, ",")
+
+				switch len(extParts) {
+				case 1:
+					extensions = append(extensions, Extension{
+						Name: extParts[0],
+					})
+				case 2:
+					extensions = append(extensions, Extension{
+						Name:   extParts[0],
+						GitUrl: extParts[1],
+					})
+				default:
+					fmt.Println("ERROR: Invalid extension format:", ext)
+				}
+			}
+
+			return extensions
+		}
 
 		switch fileType {
 		case "backup":
@@ -120,6 +168,21 @@ var newCmd = &cobra.Command{
 					fmt.Println("ERROR: Failed to write section", sectionName, "to tar file:", err)
 					os.Exit(1)
 				}
+			}
+
+			extensions := parseExtensions()
+
+			if len(extensions) > 0 {
+				var buf bytes.Buffer
+
+				err = json.NewEncoder(&buf).Encode(extensions)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to marshal extensions:", err)
+					os.Exit(1)
+				}
+
+				file.WriteSection(&buf, "extensionsNeeded")
 			}
 		case "seed":
 			dbName := cmd.Flag("db").Value.String()
@@ -219,8 +282,24 @@ var newCmd = &cobra.Command{
 				fmt.Println("ERROR: Failed to write seed-specific meta to tar file:", err)
 				os.Exit(1)
 			}
+
+			extensions := parseExtensions()
+
+			if len(extensions) > 0 {
+				var buf bytes.Buffer
+
+				err = json.NewEncoder(&buf).Encode(extensions)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to marshal extensions:", err)
+					os.Exit(1)
+				}
+
+				file.WriteSection(&buf, "extensionsNeeded")
+			}
 		case "staging":
 			dbName := cmd.Flag("db").Value.String()
+			extensions := parseExtensions()
 
 			if dbName == "" {
 				fmt.Println("ERROR: You must specify a database to backup!")
@@ -314,13 +393,9 @@ var newCmd = &cobra.Command{
 					return nil, fmt.Errorf("failed to acquire copy database conn: %w", err)
 				}
 
-				sqlCmds = []string{
-					"CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"",
-					"CREATE EXTENSION IF NOT EXISTS \"citext\"",
-				}
-
-				for _, c := range sqlCmds {
-					fmt.Println("[psql, copyDb] =>", c)
+				for _, ext := range extensions {
+					c := "CREATE EXTENSION IF NOT EXISTS \"" + ext.Name + "\""
+					fmt.Println("[psql, addExtension]", c)
 
 					_, err = conn.Exec(ctx, c)
 
@@ -475,6 +550,19 @@ var newCmd = &cobra.Command{
 				}
 			}
 
+			if len(extensions) > 0 {
+				var buf bytes.Buffer
+
+				err := json.NewEncoder(&buf).Encode(extensions)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to marshal extensions:", err)
+					os.Exit(1)
+				}
+
+				file.WriteSection(&buf, "extensionsNeeded")
+			}
+
 		default:
 			fmt.Println("ERROR: Invalid type:", fileType)
 			os.Exit(1)
@@ -594,6 +682,81 @@ var loadCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		tryHandlingExtensions := func(sections map[string]*bytes.Buffer, meta *iblfile.Meta, dbName string) error {
+			extSection, ok := sections["extensionsNeeded"]
+
+			if !ok {
+				// No extensions needed
+				return nil
+			}
+
+			var extensions []Extension
+
+			err := json.NewDecoder(extSection).Decode(&extensions)
+
+			if err != nil {
+				return fmt.Errorf("failed to decode extensions: %w", err)
+			}
+
+			conn, err := pgx.Connect(context.Background(), "postgres:///"+dbName)
+
+			if err != nil {
+				return fmt.Errorf("failed to acquire database conn: %w", err)
+			}
+
+			for _, ext := range extensions {
+				// Check if extension exists on postgres
+				_, err = conn.Exec(context.Background(), "CREATE EXTENSION IF NOT EXISTS \""+ext.Name+"\"")
+
+				if strings.Contains(err.Error(), "not available") {
+					fmt.Println("ERROR: Extension", ext.Name, "cannot be loaded:", err)
+					fmt.Println("Trying to install it from the git repo:", ext.GitUrl)
+
+					if os.Getenv("SKIP_EXTENSION_INSTALL") == "true" {
+						os.Exit(1)
+					}
+
+					gitCmd := exec.Command("git", "clone", ext.GitUrl)
+
+					gitCmd.Stdout = os.Stdout
+					gitCmd.Stderr = os.Stderr
+					gitCmd.Env = os.Environ()
+
+					err = gitCmd.Run()
+
+					if err != nil {
+						return fmt.Errorf("failed to clone git repo: %w", err)
+					}
+
+					var cmds = [][]string{
+						{"gmake"},
+						{"gmake", "install"},
+						{"gmake", "installcheck"},
+					}
+
+					for _, c := range cmds {
+						cmd := exec.Command(c[0], c[1:]...)
+
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						cmd.Env = os.Environ()
+
+						err = cmd.Run()
+
+						if err != nil {
+							return fmt.Errorf("failed to execute command '%s': %w", c, err)
+						}
+					}
+				}
+
+				if err != nil {
+					return fmt.Errorf("failed to create extension: %w", err)
+				}
+			}
+
+			return nil
+		}
+
 		switch meta.Type {
 		case "db.backup":
 			privKeyFile := cmd.Flag("priv-key").Value.String()
@@ -637,6 +800,13 @@ var loadCmd = &cobra.Command{
 			} else {
 				fmt.Println("WARNING: Backup data is not encrypted!")
 				decrData = encData
+			}
+
+			err = tryHandlingExtensions(sections, meta, dbName)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to handle extensions:", err)
+				os.Exit(1)
 			}
 
 			// Restore dump
@@ -746,6 +916,13 @@ var loadCmd = &cobra.Command{
 			fmt.Println("Restoring database schema")
 
 			conn.Close(ctx)
+
+			err = tryHandlingExtensions(sections, meta, dbName)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to handle extensions:", err)
+				os.Exit(1)
+			}
 
 			// Use pg_restore to restore seedman.tmp
 			restoreCmd := exec.Command("pg_restore", "-d", dbName)
@@ -1022,8 +1199,9 @@ func init() {
 
 	newCmd.PersistentFlags().String("pubkey", "", "The public key to encrypt the seed with")
 	newCmd.PersistentFlags().String("default-db", "", "If type is seed, the default database name to seed to.")
-	newCmd.PersistentFlags().String("db", "", "If type is backup, the database to backup to (backup) or the database name to seed from (seed).")
+	newCmd.PersistentFlags().String("db", "", "If type is backup, the database to backup to (backup) or the database name to seed from [seed only].")
 	newCmd.PersistentFlags().String("backup-tables", "", "The tables to fully backup in the seed [seed only]")
+	newCmd.PersistentFlags().String("extensions", "", "The extensions required. Format: --extensions=NAME,GIT_URL|NAME2,GIT_URL2 [seed/backup/staging only]")
 
 	dbCmd.AddCommand(genCiSchemaCmd)
 	dbCmd.AddCommand(newCmd)
