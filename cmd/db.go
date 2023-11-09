@@ -30,6 +30,9 @@ type SeedMetadata struct {
 
 	// Source database name
 	SourceDatabase string `json:"s"`
+
+	// Restore table order
+	RestoreOrder []string `json:"r"`
 }
 
 // Extensions needed. If a git repo is provided under the extensions key,
@@ -264,6 +267,7 @@ var newCmd = &cobra.Command{
 				Nonce:           crypto.RandString(32),
 				DefaultDatabase: defaultDatabase,
 				SourceDatabase:  dbName,
+				RestoreOrder:    coreTables,
 			}
 
 			seedMetaBuf := bytes.NewBuffer([]byte{})
@@ -950,17 +954,8 @@ var loadCmd = &cobra.Command{
 
 			fmt.Println("Restoring backed up tables")
 
-			// Restore backed up tables
-			var tables []string
-
-			for key := range sections {
-				if strings.HasPrefix(key, "backup/") {
-					tables = append(tables, key[7:])
-				}
-			}
-
-			for i, table := range tables {
-				fmt.Printf("Restoring table: [%d/%d] %s\n", i+1, len(tables), table)
+			for i, table := range smeta.RestoreOrder {
+				fmt.Printf("Restoring table: [%d/%d] %s\n", i+1, len(smeta.RestoreOrder), table)
 
 				backupBuf, ok := sections["backup/"+table]
 
@@ -1176,7 +1171,7 @@ func init() {
 		},
 		&iblfile.Format{
 			Format:  "seed",
-			Version: "a1",
+			Version: "a2",
 			GetExtended: func(sections map[string]*bytes.Buffer, meta *iblfile.Meta) (map[string]any, error) {
 				seedMetaBuf, ok := sections["seed_meta"]
 
