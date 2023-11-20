@@ -1,3 +1,3 @@
 #/bin/bash
 CDN_PATH=/silverpelt/cdn/ibl/dev
-su ibl -c "cd ~/ && ibl db new seed ${CDN_PATH}/seed.iblseed --db infinity --backup-tables changelogs,partner_types,staff_template_types,staff_templates --extensions uuid-ossp\|citext\|semver,https://github.com/theory/pg-semver"
+su ibl -c "cd ~/ && ibl db new seed ${CDN_PATH}/seed.iblseed --db infinity --backup-tables changelogs,partner_types,staff_template_types,staff_templates --extensions uuid-ossp\|citext\|semver,https://github.com/theory/pg-semver && ibl db gen-ci-schema /silverpelt/cdn/ibl/dev/"
