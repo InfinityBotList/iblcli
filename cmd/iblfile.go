@@ -165,7 +165,7 @@ var iblFileUpgrade = &cobra.Command{
 				os.Exit(1)
 			}
 
-			meta.FormatVersion = "frostpaw-rev6"
+			meta.Protocol = "frostpaw-rev6"
 
 			var bufNew = bytes.NewBuffer([]byte{})
 
@@ -203,6 +203,8 @@ var iblFileUpgrade = &cobra.Command{
 				fmt.Println("ERROR: Failed to write output file:", err)
 				os.Exit(1)
 			}
+
+			os.Exit(0)
 		}
 
 		// Open input file
