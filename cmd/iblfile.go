@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"bytes"
+	"compress/lzw"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -99,6 +101,108 @@ var iblFileUpgrade = &cobra.Command{
 		if err != nil {
 			fmt.Println("ERROR: Failed to open input file:", err)
 			os.Exit(1)
+		}
+
+		// LZW migration. Older versions of the tool used LZW compression for files but this actually worsens file sizes and wastes CPU
+		//
+		// Try to lzw decompress the file, if so we can upgrade the file by simply decompressing it
+		// This is a hacky way to do it, but it works
+		var buf bytes.Buffer
+
+		r := lzw.NewReader(inputFile, lzw.LSB, 8)
+
+		_, err = io.Copy(&buf, r)
+
+		// Upgrade to frostpaw-rev6
+		if err == nil {
+			fmt.Println("INFO: Detected LZW compressed file, upgrading frostpaw-rev5-e1 to frostpaw-rev6")
+			sections, err := iblfile.RawDataParse(&buf)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to parse input file:", err)
+				os.Exit(1)
+			}
+
+			type EncryptionData struct {
+				// Public key to encrypt data with
+				PEM []byte `json:"p"`
+
+				// Encrypted OEAP keys
+				Keys [][]byte `json:"k"`
+
+				// Encryption nonce
+				Nonce string `json:"n"`
+
+				// Whether or not symmetric encryption is being used
+				//
+				// If this option is set, then a `privKey` section MUST be present (e.g. using an AutoEncrypted file)
+				Symmetric bool `json:"s"`
+			}
+
+			type Meta struct {
+				CreatedAt time.Time `json:"c"`
+				Protocol  string    `json:"p"`
+
+				// Format version
+				//
+				// This can be used to create breaking changes to a file type without changing the entire protocol
+				FormatVersion string `json:"v,omitempty"`
+
+				// Encryption data, if a section is encrypted
+				// This is a map that maps each section to its encryption data
+				EncryptionData map[string]*EncryptionData `json:"e,omitempty"`
+
+				// Type of the file
+				Type string `json:"t"`
+			}
+
+			var meta Meta
+
+			err = json.NewDecoder(bytes.NewBuffer(sections["meta"].Bytes())).Decode(&meta)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to decode metadata:", err)
+				os.Exit(1)
+			}
+
+			meta.FormatVersion = "frostpaw-rev6"
+
+			var bufNew = bytes.NewBuffer([]byte{})
+
+			err = json.NewEncoder(bufNew).Encode(meta)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to encode metadata:", err)
+				os.Exit(1)
+			}
+
+			sections["meta"] = bufNew
+
+			// Open output file
+			outputFile, err := os.Create(args[1])
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to open output file:", err)
+				os.Exit(1)
+			}
+
+			newFile := iblfile.New()
+
+			for name, buf := range sections {
+				err = newFile.WriteSection(buf, name)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to write section:", err)
+					os.Exit(1)
+				}
+			}
+
+			err = newFile.WriteOutput(outputFile)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to write output file:", err)
+				os.Exit(1)
+			}
 		}
 
 		// Open input file
