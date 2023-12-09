@@ -43,6 +43,20 @@ var infoCmd = &cobra.Command{
 
 		sections, meta, err := iblfile.ParseData(f)
 
+		// Ignore error temporarily
+		if meta != nil {
+			if len(sections) > 0 {
+				fmt.Println("Keys present:", iblfile.MapKeys(sections))
+			} else {
+				fmt.Println("No keys could be parsed")
+			}
+			fmt.Println("\n== Metadata ==")
+			fmt.Println("Protocol:", meta.Protocol)
+			fmt.Println("File Version:", meta.FormatVersion)
+			fmt.Println("Type:", meta.Type)
+			fmt.Println("Created At:", meta.CreatedAt)
+		}
+
 		if err != nil {
 			fmt.Println("ERROR:", err)
 			os.Exit(1)
