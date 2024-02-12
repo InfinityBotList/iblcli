@@ -68,7 +68,7 @@ var proxyCmd = &cobra.Command{
 		}
 
 		// Fork nirn-proxy
-		proxy := exec.Command(path)
+		proxy := exec.Command(path, args...)
 
 		proxy.Stdout = os.Stdout
 		proxy.Stderr = os.Stderr
