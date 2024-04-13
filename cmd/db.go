@@ -16,6 +16,9 @@ import (
 	"github.com/InfinityBotList/ibl/internal/links"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/infinitybotlist/iblfile"
+	"github.com/infinitybotlist/iblfile/encryptors/aes256"
+	"github.com/infinitybotlist/iblfile/encryptors/noencryption"
+	"github.com/infinitybotlist/iblfile/encryptors/pem"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
@@ -70,12 +73,6 @@ var newCmd = &cobra.Command{
 		// Write metadata to buffer
 		mdBuf := bytes.NewBuffer([]byte{})
 
-		// Write metadata to md file
-		var metadata iblfile.Meta
-
-		// Create a tar file as a io.Writer, NOT a file
-		file := iblfile.New()
-
 		parseExtensions := func() []Extension {
 			extensions := []Extension{}
 
@@ -108,6 +105,7 @@ var newCmd = &cobra.Command{
 			return extensions
 		}
 
+		var file *iblfile.AutoEncryptedFile_FullFile
 		switch fileType {
 		case "backup":
 			dbName := cmd.Flag("db").Value.String()
@@ -131,46 +129,32 @@ var newCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			encMap, encDataMap, err := iblfile.EncryptSections(
-				iblfile.DataEncrypt{
-					Section: "data",
-					Data: func() (*bytes.Buffer, error) {
-						// Create full backup of the database
-						var backupBuf = bytes.NewBuffer([]byte{})
-						backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
-						backupCmd.Env = os.Environ()
-						backupCmd.Stdout = backupBuf
+			// Create a new file
+			file = iblfile.NewAutoEncryptedFile_FullFile(&pem.PemEncryptedSource{
+				KeyCount:  16,
+				PublicKey: pubKeyFileContents,
+			})
 
-						err = backupCmd.Run()
+			// Create full backup of the database
+			var backupBuf = bytes.NewBuffer([]byte{})
+			backupCmd := exec.Command("pg_dump", "-Fc", "-d", dbName)
+			backupCmd.Env = os.Environ()
+			backupCmd.Stdout = backupBuf
 
-						if err != nil {
-							return nil, err
-						}
-
-						fmt.Println("NOTE: Created", backupBuf.Len(), "byte backup file")
-
-						return backupBuf, nil
-					},
-					Pubkey: pubKeyFileContents,
-				},
-			)
+			err = backupCmd.Run()
 
 			if err != nil {
-				fmt.Println("ERROR: Failed to encrypt data:", err)
+				fmt.Println("ERROR: Failed to create backup:", err)
 				os.Exit(1)
 			}
 
-			metadata = iblfile.Meta{
-				EncryptionData: encDataMap,
-			}
+			fmt.Println("NOTE: Created", backupBuf.Len(), "byte backup file")
 
-			for sectionName, encData := range encMap {
-				err = file.WriteSection(encData, sectionName)
+			err = file.WriteSection(backupBuf, "data")
 
-				if err != nil {
-					fmt.Println("ERROR: Failed to write section", sectionName, "to tar file:", err)
-					os.Exit(1)
-				}
+			if err != nil {
+				fmt.Println("ERROR: Failed to write backup file to tar file:", err)
+				os.Exit(1)
 			}
 
 			extensions := parseExtensions()
@@ -201,6 +185,9 @@ var newCmd = &cobra.Command{
 				fmt.Println("NOTE: No default database specified, will use database name as default")
 				defaultDatabase = dbName
 			}
+
+			// Create a new file
+			file = iblfile.NewAutoEncryptedFile_FullFile(&noencryption.NoEncryptionSource{})
 
 			fmt.Println("Creating database backup in schema buffer")
 
@@ -511,33 +498,29 @@ var newCmd = &cobra.Command{
 					os.Exit(1)
 				}
 
-				encMap, encDataMap, err := iblfile.EncryptSections(
-					iblfile.DataEncrypt{
-						Section: "data",
-						Data:    createSanitizedDb,
-						Pubkey:  pubKeyFileContents,
-					},
-				)
+				// Create a new file
+				file = iblfile.NewAutoEncryptedFile_FullFile(&pem.PemEncryptedSource{
+					KeyCount:  16,
+					PublicKey: pubKeyFileContents,
+				})
+
+				data, err := createSanitizedDb()
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to create sanitized database backup:", err)
+					os.Exit(1)
+				}
+
+				file.WriteSection(data, "data")
 
 				if err != nil {
 					fmt.Println("ERROR: Failed to encrypt data:", err)
 					os.Exit(1)
 				}
-
-				metadata = iblfile.Meta{
-					EncryptionData: encDataMap,
-				}
-
-				for sectionName, encData := range encMap {
-					err = file.WriteSection(encData, sectionName)
-
-					if err != nil {
-						fmt.Println("ERROR: Failed to write section", sectionName, "to tar file:", err)
-						os.Exit(1)
-					}
-				}
 			} else {
 				fmt.Println("NOTE: No public key specified, will not encrypt database backup")
+
+				file = iblfile.NewAutoEncryptedFile_FullFile(&noencryption.NoEncryptionSource{})
 
 				backupBuf, err := createSanitizedDb()
 
@@ -572,12 +555,6 @@ var newCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fileType = "db." + fileType
-
-		metadata.CreatedAt = time.Now()
-		metadata.Protocol = iblfile.Protocol
-		metadata.Type = fileType
-
 		f, err := iblfile.GetFormat(fileType)
 
 		if f == nil {
@@ -585,7 +562,12 @@ var newCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		metadata.FormatVersion = f.Version
+		metadata := iblfile.Meta{
+			CreatedAt:     time.Now(),
+			Protocol:      iblfile.Protocol,
+			Type:          "db." + fileType,
+			FormatVersion: f.Version,
+		}
 
 		enc := json.NewEncoder(mdBuf)
 
@@ -636,7 +618,7 @@ var loadCmd = &cobra.Command{
 			}
 		}
 
-		var data io.Reader
+		var data io.ReadSeeker
 
 		// Check args as to which file to use
 		filename := args[0]
@@ -654,7 +636,7 @@ var loadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			data = bytes.NewBuffer(buf)
+			data = bytes.NewReader(buf)
 		} else {
 			// Open seed file
 			f, err := os.Open(filename)
@@ -669,24 +651,98 @@ var loadCmd = &cobra.Command{
 			data = f
 		}
 
-		sections, meta, err := iblfile.ParseData(data)
+		fileType, err := iblfile.DeduceType(data, false)
 
 		if err != nil {
-			fmt.Println("ERROR: Parsing data failed", err)
+			fmt.Println("ERROR: Failed to deduce file type:", err, ". Defaulting to NewAutoEncryptedFile_FullFile")
+		} else {
+			if fileType.Type != iblfile.DeducedTypeAutoEncryptedFile_FullFile {
+				fmt.Println("ERROR: Invalid file type:", fileType.Type.String(), ". Try using the `iblcli upgrade` command to upgrade the file")
+				os.Exit(1)
+			}
+		}
+
+		// Load the file itself
+		var file *iblfile.AutoEncryptedFile_FullFile
+
+		block, err := iblfile.QuickBlockParser(data)
+
+		if err != nil {
+			panic("error reading metadata: " + err.Error())
+		}
+
+		pemEnc := pem.PemEncryptedSource{}
+		aes256Enc := aes256.AES256Source{}
+		noencryptionEnc := noencryption.NoEncryptionSource{}
+		if string(block.Encryptor) == pemEnc.ID() {
+			privKeyFile := cmd.Flag("priv-key").Value.String()
+
+			if privKeyFile == "" {
+				fmt.Println("ERROR: You must specify a private key to decrypt the seed with!")
+				os.Exit(1)
+			}
+
+			privKeyFileContents, err := os.ReadFile(privKeyFile)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to read private key file:", err)
+				os.Exit(1)
+			}
+
+			pemEnc.PrivateKey = privKeyFileContents
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &pemEnc)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+				os.Exit(1)
+			}
+		} else if string(block.Encryptor) == aes256Enc.ID() {
+			encKey := cmd.Flag("enc-key").Value.String()
+
+			if encKey == "" {
+				fmt.Println("ERROR: You must specify an encryption key to decrypt the seed with!")
+				os.Exit(1)
+			}
+
+			aes256Enc.EncryptionKey = encKey
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &aes256Enc)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+				os.Exit(1)
+			}
+		} else if string(block.Encryptor) == noencryptionEnc.ID() {
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &noencryption.NoEncryptionSource{})
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println("ERROR: Invalid file type:", fileType.Type.String(), ". Try using the `iblcli upgrade` command to upgrade the file")
 			os.Exit(1)
 		}
 
-		if meta == nil {
-			fmt.Println("ERROR: No metadata present!")
+		if err != nil {
+			fmt.Println("ERROR: Failed to open file:", err)
 			os.Exit(1)
 		}
 
-		if meta.Protocol != iblfile.Protocol && os.Getenv("SKIP_PROTOCOL_CHECK") != "true" {
-			fmt.Println("ERROR: File is of an invalid version [version is", meta.Protocol, "but expected", iblfile.Protocol, "]")
+		sections, err := file.Sections()
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to get sections:", err)
 			os.Exit(1)
 		}
 
-		tryHandlingExtensions := func(sections map[string]*bytes.Buffer, meta *iblfile.Meta, dbName string) error {
+		meta, err := iblfile.ParseMetadata(sections)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to parse metadata:", err)
+			os.Exit(1)
+		}
+
+		tryHandlingExtensions := func(sections map[string]*bytes.Buffer, dbName string) error {
 			extSection, ok := sections["extensionsNeeded"]
 
 			if !ok {
@@ -776,13 +832,6 @@ var loadCmd = &cobra.Command{
 
 		switch meta.Type {
 		case "db.backup":
-			privKeyFile := cmd.Flag("priv-key").Value.String()
-
-			if privKeyFile == "" {
-				fmt.Println("ERROR: You must specify a private key to decrypt the seed with!")
-				os.Exit(1)
-			}
-
 			dbName := cmd.Flag("db").Value.String()
 
 			if dbName == "" {
@@ -790,36 +839,14 @@ var loadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			privKeyFileContents, err := os.ReadFile(privKeyFile)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to read private key file:", err)
-				os.Exit(1)
-			}
-
-			encData, ok := sections["data"]
+			data, ok := sections["data"]
 
 			if !ok {
-				fmt.Println("ERROR: DB file is corrupt [no backup data]")
+				fmt.Println("ERROR: Backup file is corrupt [no data]")
 				os.Exit(1)
 			}
 
-			enc, ok := meta.EncryptionData["data"]
-
-			var decrData *bytes.Buffer
-			if ok {
-				decrData, err = iblfile.DecryptData(encData, enc, privKeyFileContents)
-
-				if err != nil {
-					fmt.Println("ERROR: Failed to decrypt data:", err)
-					os.Exit(1)
-				}
-			} else {
-				fmt.Println("WARNING: Backup data is not encrypted!")
-				decrData = encData
-			}
-
-			err = tryHandlingExtensions(sections, meta, dbName)
+			err = tryHandlingExtensions(sections, dbName)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to handle extensions:", err)
@@ -832,7 +859,7 @@ var loadCmd = &cobra.Command{
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
 			backupCmd.Env = os.Environ()
-			backupCmd.Stdin = decrData
+			backupCmd.Stdin = data
 
 			err = backupCmd.Run()
 
@@ -934,7 +961,7 @@ var loadCmd = &cobra.Command{
 
 			conn.Close(ctx)
 
-			err = tryHandlingExtensions(sections, meta, dbName)
+			err = tryHandlingExtensions(sections, dbName)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to handle extensions:", err)
@@ -1002,8 +1029,6 @@ var loadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		case "db.staging":
-			privKeyFile := cmd.Flag("priv-key").Value.String()
-
 			dbName := cmd.Flag("db").Value.String()
 
 			if dbName == "" {
@@ -1011,44 +1036,14 @@ var loadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			var privKeyFileContents []byte
-			if privKeyFile != "" {
-				privKeyFileContents, err = os.ReadFile(privKeyFile)
-
-				if err != nil {
-					fmt.Println("ERROR: Failed to read private key file:", err)
-					os.Exit(1)
-				}
-			}
-
-			encData, ok := sections["data"]
+			data, ok := sections["data"]
 
 			if !ok {
-				fmt.Println("ERROR: DB file is corrupt [no backup data]")
+				fmt.Println("ERROR: Staging file is corrupt [no data]")
 				os.Exit(1)
 			}
 
-			enc, ok := meta.EncryptionData["data"]
-
-			if ok && privKeyFile == "" {
-				fmt.Println("ERROR: This staging backup is encrypted. You must provide a private key to decrypt with!")
-				os.Exit(1)
-			}
-
-			var decrData *bytes.Buffer
-			if ok {
-				decrData, err = iblfile.DecryptData(encData, enc, privKeyFileContents)
-
-				if err != nil {
-					fmt.Println("ERROR: Failed to decrypt data:", err)
-					os.Exit(1)
-				}
-			} else {
-				fmt.Println("WARNING: Staging backup data is not encrypted!")
-				decrData = encData
-			}
-
-			err = tryHandlingExtensions(sections, meta, dbName)
+			err = tryHandlingExtensions(sections, dbName)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to handle extensions:", err)
@@ -1089,14 +1084,14 @@ var loadCmd = &cobra.Command{
 				fmt.Println("WARNING: Failed to close conn:", err)
 			}
 
-			decrDataBytes := decrData.Bytes()
+			dataBytes := data.Bytes()
 
 			// Restore dump to dbName and prodMarkerName
 			backupCmd := exec.Command("pg_restore", "-d", dbName)
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
 			backupCmd.Env = os.Environ()
-			backupCmd.Stdin = bytes.NewBuffer(decrDataBytes)
+			backupCmd.Stdin = bytes.NewBuffer(dataBytes)
 
 			err = backupCmd.Run()
 
@@ -1109,7 +1104,7 @@ var loadCmd = &cobra.Command{
 			backupCmd.Stdout = os.Stdout
 			backupCmd.Stderr = os.Stderr
 			backupCmd.Env = os.Environ()
-			backupCmd.Stdin = bytes.NewBuffer(decrDataBytes)
+			backupCmd.Stdin = bytes.NewBuffer(dataBytes)
 
 			err = backupCmd.Run()
 

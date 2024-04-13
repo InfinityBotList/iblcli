@@ -5,14 +5,18 @@ package cmd
 
 import (
 	"bytes"
-	"compress/lzw"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/InfinityBotList/ibl/internal/iblfile_legacyenc"
+	"github.com/go-andiamo/splitter"
 	"github.com/infinitybotlist/iblfile"
+	"github.com/infinitybotlist/iblfile/encryptors/aes256"
+	"github.com/infinitybotlist/iblfile/encryptors/noencryption"
+	"github.com/infinitybotlist/iblfile/encryptors/pem"
 	"github.com/spf13/cobra"
 )
 
@@ -28,8 +32,6 @@ var infoCmd = &cobra.Command{
 	Long:  `Gets info about a ibl file`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		showPubKey := cmd.Flag("show-pubkey").Value.String() == "true"
-
 		filename := args[0]
 
 		f, err := os.Open(filename)
@@ -41,41 +43,117 @@ var infoCmd = &cobra.Command{
 
 		defer f.Close()
 
-		sections, meta, err := iblfile.ParseData(f)
-
-		// Ignore error temporarily
-		if meta != nil {
-			if len(sections) > 0 {
-				fmt.Println("Keys present:", iblfile.MapKeys(sections))
-			} else {
-				fmt.Println("No keys could be parsed")
-			}
-			fmt.Println("\n== Metadata ==")
-			fmt.Println("Protocol:", meta.Protocol)
-			fmt.Println("File Version:", meta.FormatVersion)
-			fmt.Println("Type:", meta.Type)
-			fmt.Println("Created At:", meta.CreatedAt)
-		}
+		deducedFile, err := iblfile.DeduceType(f, false)
 
 		if err != nil {
-			fmt.Println("ERROR:", err)
+			fmt.Println("ERROR: Failed to deduce file type:", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("\n== Extra Info ==")
-		if len(meta.EncryptionData) > 0 {
-			fmt.Println("File contains encrypted sections")
+		fmt.Println("Deduced file type:", deducedFile.Type.String())
 
-			for sectionName, enc := range meta.EncryptionData {
-				fmt.Println("\n=> Encrypted section '" + sectionName + "'")
+		if deducedFile.Type == iblfile.DeducedTypeAutoEncryptedFile_FullFile {
+			// We need to decrypt it
+			block, err := iblfile.QuickBlockParser(f)
 
-				if showPubKey {
-					fmt.Print("Public Key:\n")
-					fmt.Print(string(enc.PEM))
-				}
+			if err != nil {
+				fmt.Println("ERROR: Failed to parse block:", err)
+				os.Exit(1)
 			}
-		} else {
-			fmt.Println("File is not encrypted")
+
+			var file *iblfile.AutoEncryptedFile_FullFile
+
+			pemEnc := pem.PemEncryptedSource{}
+			aes256Enc := aes256.AES256Source{}
+			noencryptionEnc := noencryption.NoEncryptionSource{}
+			if string(block.Encryptor) == pemEnc.ID() {
+				privKeyFile := cmd.Flag("priv-key").Value.String()
+
+				if privKeyFile == "" {
+					fmt.Println("ERROR: You must specify a private key to decrypt the seed with!")
+					os.Exit(1)
+				}
+
+				privKeyFileContents, err := os.ReadFile(privKeyFile)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to read private key file:", err)
+					os.Exit(1)
+				}
+
+				pemEnc.PrivateKey = privKeyFileContents
+				file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &pemEnc)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+					os.Exit(1)
+				}
+			} else if string(block.Encryptor) == aes256Enc.ID() {
+				encKey := cmd.Flag("enc-key").Value.String()
+
+				if encKey == "" {
+					fmt.Println("ERROR: You must specify an encryption key to decrypt the seed with!")
+					os.Exit(1)
+				}
+
+				aes256Enc.EncryptionKey = encKey
+				file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &aes256Enc)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+					os.Exit(1)
+				}
+			} else if string(block.Encryptor) == noencryptionEnc.ID() {
+				file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &noencryption.NoEncryptionSource{})
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to open auto encrypted file:", err)
+					os.Exit(1)
+				}
+			} else {
+				fmt.Println("ERROR: Invalid encryptor:", string(block.Encryptor), ". Try using the `iblcli upgrade` command to upgrade the file")
+				os.Exit(1)
+			}
+
+			sections, err := file.Sections()
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to get sections:", err)
+				os.Exit(1)
+			}
+
+			deducedFile.Sections = sections
+		}
+
+		fmt.Println("Deduced sections:", iblfile.MapKeys(deducedFile.Sections))
+		fmt.Println("Deduction parse errors:", deducedFile.ParseErrors)
+
+		meta, err := iblfile.LoadMetadata(deducedFile.Sections)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to load metadata:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n== Metadata ==")
+		fmt.Println("Protocol:", meta.Protocol)
+		fmt.Println("File Version:", meta.FormatVersion)
+		fmt.Println("Type:", meta.Type)
+		fmt.Println("Created At:", meta.CreatedAt)
+
+		if deducedFile.Type == iblfile.DeducedTypeAutoEncryptedFile_PerSection {
+			fmt.Println("\n== Section Encryptors ==")
+			for section := range deducedFile.Sections {
+				// All sections are blocks, so just quickblockparse them
+				block, err := iblfile.QuickBlockParser(bytes.NewReader(deducedFile.Sections[section].Bytes()))
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to parse block '"+section+"' :", err)
+					continue
+				}
+
+				fmt.Println(section + ": " + string(block.Encryptor))
+			}
 		}
 
 		format, err := iblfile.GetFormat(meta.Type)
@@ -86,7 +164,7 @@ var infoCmd = &cobra.Command{
 		}
 
 		if format.GetExtended != nil {
-			extendedMeta, err := format.GetExtended(sections, meta)
+			extendedMeta, err := format.GetExtended(deducedFile.Sections, meta)
 
 			if err != nil {
 				fmt.Println("ERROR:", err)
@@ -117,179 +195,65 @@ var iblFileUpgrade = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// LZW migration. Older versions of the tool used LZW compression for files but this actually worsens file sizes and wastes CPU
-		//
-		// Try to lzw decompress the file, if so we can upgrade the file by simply decompressing it
-		// This is a hacky way to do it, but it works
-		var buf bytes.Buffer
+		defer inputFile.Close()
 
-		r := lzw.NewReader(inputFile, lzw.LSB, 8)
-
-		_, err = io.Copy(&buf, r)
-
-		// Upgrade to frostpaw-rev6
-		if err == nil {
-			fmt.Println("INFO: Detected LZW compressed file, upgrading frostpaw-rev5-e1 to frostpaw-rev6")
-			sections, err := iblfile.RawDataParse(&buf)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to parse input file:", err)
-				os.Exit(1)
-			}
-
-			type EncryptionData struct {
-				// Public key to encrypt data with
-				PEM []byte `json:"p"`
-
-				// Encrypted OEAP keys
-				Keys [][]byte `json:"k"`
-
-				// Encryption nonce
-				Nonce string `json:"n"`
-
-				// Whether or not symmetric encryption is being used
-				//
-				// If this option is set, then a `privKey` section MUST be present (e.g. using an AutoEncrypted file)
-				Symmetric bool `json:"s"`
-			}
-
-			type Meta struct {
-				CreatedAt time.Time `json:"c"`
-				Protocol  string    `json:"p"`
-
-				// Format version
-				//
-				// This can be used to create breaking changes to a file type without changing the entire protocol
-				FormatVersion string `json:"v,omitempty"`
-
-				// Encryption data, if a section is encrypted
-				// This is a map that maps each section to its encryption data
-				EncryptionData map[string]*EncryptionData `json:"e,omitempty"`
-
-				// Type of the file
-				Type string `json:"t"`
-			}
-
-			var meta Meta
-
-			err = json.NewDecoder(bytes.NewBuffer(sections["meta"].Bytes())).Decode(&meta)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to decode metadata:", err)
-				os.Exit(1)
-			}
-
-			meta.Protocol = "frostpaw-rev6"
-
-			var bufNew = bytes.NewBuffer([]byte{})
-
-			err = json.NewEncoder(bufNew).Encode(meta)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to encode metadata:", err)
-				os.Exit(1)
-			}
-
-			sections["meta"] = bufNew
-
-			// Open output file
-			outputFile, err := os.Create(args[1])
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to open output file:", err)
-				os.Exit(1)
-			}
-
-			newFile := iblfile.New()
-
-			for name, buf := range sections {
-				err = newFile.WriteSection(buf, name)
-
-				if err != nil {
-					fmt.Println("ERROR: Failed to write section:", err)
-					os.Exit(1)
-				}
-			}
-
-			err = newFile.WriteOutput(outputFile)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to write output file:", err)
-				os.Exit(1)
-			}
-
-			os.Exit(0)
-		}
-
-		// Open input file
-		sections, err := iblfile.RawDataParse(inputFile)
+		deducedFile, err := iblfile.DeduceType(inputFile, false)
 
 		if err != nil {
-			fmt.Println("ERROR: Failed to parse input file:", err)
+			fmt.Println("ERROR: Failed to deduce file type:", err)
 			os.Exit(1)
 		}
 
-		metaBuf, ok := sections["meta"]
+		if len(deducedFile.Sections) == 0 {
+			fmt.Println("ERROR: No sections found in file")
+			os.Exit(1)
+		}
+
+		fmt.Println("Deduced sections:", iblfile.MapKeys(deducedFile.Sections))
+		fmt.Println("Deduction parse errors:", deducedFile.ParseErrors)
+
+		metaBuf, ok := deducedFile.Sections["meta"]
 
 		if !ok {
-			// All current protocols have a metadata section
 			fmt.Println("ERROR: No metadata section found")
 			os.Exit(1)
 		}
 
-		metaBytes := metaBuf.Bytes()
+		type Meta struct {
+			CreatedAt time.Time `json:"c"`
+			Protocol  string    `json:"p"`
 
-		var data struct {
-			Protocol string `json:"p"`
+			// Format version
+			//
+			// This can be used to create breaking changes to a file type without changing the entire protocol
+			FormatVersion string `json:"v,omitempty"`
+
+			// Encryption data, if a section is encrypted
+			// This is a map that maps each section to its encryption data
+			EncryptionData map[string]*iblfile_legacyenc.PemEncryptionData `json:"e,omitempty"`
+
+			// Extra metadata attributes
+			ExtraMetadata map[string]string `json:"m,omitempty"`
+
+			// Type of the file
+			Type string `json:"t"`
 		}
 
-		err = json.NewDecoder(bytes.NewBuffer(metaBytes)).Decode(&data)
+		var meta Meta
+
+		metaBytes := metaBuf.Bytes()
+
+		err = json.NewDecoder(bytes.NewBuffer(metaBytes)).Decode(&meta)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to decode metadata:", err)
 			os.Exit(1)
 		}
 
-		switch data.Protocol {
+		// Apply some normalization
+		switch meta.Protocol {
+		// rev4 was a big upgrade as it added namespacing
 		case "frostpaw-rev4-e1":
-			type EncryptionData struct {
-				// Public key to encrypt data with
-				PEM []byte `json:"p"`
-
-				// Encrypted OEAP keys
-				Keys [][]byte `json:"k"`
-
-				// Encryption nonce
-				Nonce string `json:"n"`
-			}
-
-			type Meta struct {
-				CreatedAt time.Time `json:"c"`
-				Protocol  string    `json:"p"`
-
-				// Format version
-				//
-				// This can be used to create breaking changes to a file type without changing the entire protocol
-				FormatVersion string `json:"v,omitempty"`
-
-				// Encryption data, if a section is encrypted
-				// This is a map that maps each section to its encryption data
-				EncryptionData map[string]*EncryptionData `json:"e,omitempty"`
-
-				// Type of the file
-				Type string `json:"t"`
-			}
-
-			var meta Meta
-
-			err = json.NewDecoder(bytes.NewBuffer(metaBytes)).Decode(&meta)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to decode metadata:", err)
-				os.Exit(1)
-			}
-
-			// New: Type namespacing
 			fmt.Println("INFO: Namespacing types")
 			var renamesMap = map[string]string{
 				"backup": "db.backup",
@@ -312,12 +276,86 @@ var iblFileUpgrade = &cobra.Command{
 				os.Exit(1)
 			}
 
-			sections["meta"] = bufNew
-		default:
-			fmt.Println("ERROR: Unsupported protocol version:", data.Protocol)
+			deducedFile.Sections["meta"] = bufNew
 		}
 
-		// Open output file
+		// Legacy encryption removal
+		if len(meta.EncryptionData) > 0 {
+			fmt.Println("NOTE: Legacy encryption data detected, trying to remove it...")
+
+			argSplitter, err := splitter.NewSplitter('=', splitter.DoubleQuotes, splitter.SingleQuotes)
+
+			if err != nil {
+				panic("error initializing arg tokenizer: " + err.Error())
+			}
+
+			var keyMap = make(map[string][]byte, len(meta.EncryptionData))
+
+			// Go through all cmdline arguments for paths to keys
+			for _, args := range args {
+				argsSplit, err := argSplitter.Split(args)
+
+				if err != nil {
+					fmt.Println("WARNING: Splitting args failed: ", err.Error())
+				}
+
+				if len(argsSplit) == 2 && strings.HasPrefix(argsSplit[0], "pem:") {
+					// Open key file
+					keyFile, err := os.ReadFile(argsSplit[1])
+
+					if err != nil {
+						fmt.Println("ERROR: Failed to open key file:", err)
+						os.Exit(1)
+					}
+
+					keyMap[strings.TrimPrefix(argsSplit[0], "pem:")] = keyFile
+				}
+			}
+
+			for section, encData := range meta.EncryptionData {
+				keyFile, ok := keyMap[section]
+
+				if !ok {
+					fmt.Println("ERROR: No key found for section:", section, "\nHINT: You can specify a key for this section with `pem:<section>=<path>`")
+					os.Exit(1)
+				}
+
+				// Decrypt data
+				newBuf, err := iblfile_legacyenc.DecryptData(
+					deducedFile.Sections[section],
+					encData,
+					keyFile,
+				)
+
+				if err != nil {
+					fmt.Println("ERROR: Failed to decrypt section:", section, err)
+					os.Exit(1)
+				}
+
+				deducedFile.Sections[section] = newBuf
+			}
+		}
+
+		// Write new metadata of rev7 (latest supported by upgrade command right now)
+		newMeta := iblfile.Meta{
+			CreatedAt:     meta.CreatedAt,
+			Protocol:      "frostpaw-rev7",
+			FormatVersion: meta.FormatVersion,
+			Type:          meta.Type,
+			ExtraMetadata: meta.ExtraMetadata,
+		}
+
+		var newMetaBuf = bytes.NewBuffer([]byte{})
+		err = json.NewEncoder(newMetaBuf).Encode(newMeta)
+
+		if err != nil {
+			fmt.Println("ERROR: Failed to encode new metadata:", err)
+			os.Exit(1)
+		}
+
+		deducedFile.Sections["meta"] = newMetaBuf
+
+		// Write output as nonencyrpted auto encrypted file
 		outputFile, err := os.Create(args[1])
 
 		if err != nil {
@@ -325,9 +363,9 @@ var iblFileUpgrade = &cobra.Command{
 			os.Exit(1)
 		}
 
-		newFile := iblfile.New()
+		newFile := iblfile.NewAutoEncryptedFile_FullFile(noencryption.NoEncryptionSource{})
 
-		for name, buf := range sections {
+		for name, buf := range deducedFile.Sections {
 			err = newFile.WriteSection(buf, name)
 
 			if err != nil {
