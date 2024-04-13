@@ -555,7 +555,7 @@ var newCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		f, err := iblfile.GetFormat(fileType)
+		f, err := iblfile.GetFormat("db." + fileType)
 
 		if f == nil {
 			fmt.Println("ERROR: Internal error: format is not registered:", fileType, err)
