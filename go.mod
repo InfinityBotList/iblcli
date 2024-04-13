@@ -5,7 +5,7 @@ go 1.21.3
 require (
 	github.com/bwmarrin/discordgo v0.27.2-0.20230704233747-e39e715086d2
 	github.com/go-playground/validator/v10 v10.19.0
-	github.com/infinitybotlist/iblfile v0.0.0-20240413034641-67512eef7905
+	github.com/infinitybotlist/iblfile v0.0.0-20240413073551-e2a8b13b7806
 	github.com/jackc/pgtype v1.14.3
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/jackc/pgx/v5 v5.4.3
@@ -19,7 +19,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/getkin/kin-openapi v0.124.0 // indirect
-	github.com/go-andiamo/splitter v1.2.5 
+	github.com/go-andiamo/splitter v1.2.5
 	github.com/go-chi/chi/v5 v5.0.10 // indirect
 	github.com/go-openapi/jsonpointer v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.8 // indirect

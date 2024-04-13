@@ -61,6 +61,8 @@ github.com/infinitybotlist/iblfile v0.0.0-20240413033008-ed38d52c5ea6 h1:5Ltc8GB
 github.com/infinitybotlist/iblfile v0.0.0-20240413033008-ed38d52c5ea6/go.mod h1:j214HiwMfNCQ/udfZR33O5zv2/FPdSKIEYkMIm7tOjc=
 github.com/infinitybotlist/iblfile v0.0.0-20240413034641-67512eef7905 h1:jK+o1WTlJjvPLnBQlvEVb9n73mUW9x0K1HxkeNa8yVc=
 github.com/infinitybotlist/iblfile v0.0.0-20240413034641-67512eef7905/go.mod h1:j214HiwMfNCQ/udfZR33O5zv2/FPdSKIEYkMIm7tOjc=
+github.com/infinitybotlist/iblfile v0.0.0-20240413073551-e2a8b13b7806 h1:dESJCo8qPCvameHIl/Nrdu63fGbMCl/Bnem52tIO4OM=
+github.com/infinitybotlist/iblfile v0.0.0-20240413073551-e2a8b13b7806/go.mod h1:wHodvTc2OituNrVV6XV85dju1gJIjWFN3Ui5qR1tZ9Q=
 github.com/invopop/yaml v0.2.0 h1:7zky/qH+O0DwAyoobXUqvVBwgBFRxKoQ/3FjcVpjTMY=
 github.com/invopop/yaml v0.2.0/go.mod h1:2XuRLgs/ouIrW3XNzuNj7J3Nvu/Dig5MXvbCEdiBN3Q=
 github.com/jackc/chunkreader v1.0.0 h1:4s39bBR8ByfqH+DKm8rQA3E1LHZWB9XWcrz8fqaZbe0=
