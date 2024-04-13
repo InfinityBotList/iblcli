@@ -53,13 +53,22 @@ var infoCmd = &cobra.Command{
 		fmt.Println("Deduced file type:", deducedFile.Type.String())
 
 		if deducedFile.Type == iblfile.DeducedTypeAutoEncryptedFile_FullFile {
-			// We need to decrypt it
+			// We need to block parse it
+			_, err = f.Seek(0, 0)
+
+			if err != nil {
+				fmt.Println("ERROR: Failed to seek back to start of file:", err)
+				os.Exit(1)
+			}
+
 			block, err := iblfile.QuickBlockParser(f)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to parse block:", err)
 				os.Exit(1)
 			}
+
+			fmt.Println("Encryptor:", string(block.Encryptor))
 
 			var file *iblfile.AutoEncryptedFile_FullFile
 
@@ -70,7 +79,7 @@ var infoCmd = &cobra.Command{
 				privKeyFile := cmd.Flag("priv-key").Value.String()
 
 				if privKeyFile == "" {
-					fmt.Println("ERROR: You must specify a private key to decrypt the seed with!")
+					fmt.Println("ERROR: You must specify a private key to decrypt the file with!")
 					os.Exit(1)
 				}
 
@@ -160,10 +169,9 @@ var infoCmd = &cobra.Command{
 
 		if err != nil {
 			fmt.Println("WARNING: Unknown/unregistered format:", meta.Type, "due to error: ", err)
-			os.Exit(1)
 		}
 
-		if format.GetExtended != nil {
+		if format != nil && format.GetExtended != nil {
 			extendedMeta, err := format.GetExtended(deducedFile.Sections, meta)
 
 			if err != nil {
@@ -185,7 +193,7 @@ var iblFileUpgrade = &cobra.Command{
 	Use:   "upgrade <input file> <output file>",
 	Short: "Upgrade a file protocol version where possible",
 	Long:  `Upgrade a file protocol version where possible. This does not upgrade format versions. To upgrade format version, use a more specific convert command provided by the format.`,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Open input file
 		inputFile, err := os.Open(args[0])
@@ -385,6 +393,8 @@ var iblFileUpgrade = &cobra.Command{
 
 func init() {
 	infoCmd.PersistentFlags().Bool("show-pubkey", false, "Whether or not to show the public key for the encrypted data")
+	infoCmd.PersistentFlags().String("enc-key", "", "The encryption key [aes256] to decrypt the backup with [backup only]")
+	infoCmd.PersistentFlags().String("priv-key", "", "The private key [pem] to decrypt the backup with [backup only]")
 
 	iblFileCmd.AddCommand(infoCmd)
 	iblFileCmd.AddCommand(iblFileUpgrade)
