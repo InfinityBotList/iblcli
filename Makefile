@@ -13,7 +13,7 @@ CDN_PATH := /silverpelt/cdn/ibl/dev
 COMBOS := linux/386 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 windows/386 freebsd/amd64
 
 all:
-	CGO_ENABLED=1 go build -v $(GOFLAGS_DBG)
+	CGO_ENABLED=0 go build -v $(GOFLAGS_DBG)
 install: all
 	cp -rf ibl /usr/bin/ibl
 	cp -rf helper_scripts/* /usr/bin
@@ -22,7 +22,7 @@ publish:
 
 	for combo in $(COMBOS); do \
 		echo "$$combo"; \
-		CGO_ENABLED=1 GOOS=$${combo%/*} GOARCH=$${combo#*/} go build -o bin/$$combo/ibl $(GOFLAGS); \
+		CGO_ENABLED=0 GOOS=$${combo%/*} GOARCH=$${combo#*/} go build -o bin/$$combo/ibl $(GOFLAGS); \
 		sha512sum bin/$$combo/ibl > bin/$$combo/ibl.sha512; \
 	done
 
