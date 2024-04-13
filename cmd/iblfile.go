@@ -72,7 +72,7 @@ func parseAutoEncryptedFullFile(cmd *cobra.Command, f io.ReadSeeker) map[string]
 		encKey := cmd.Flag("enc-key").Value.String()
 
 		if encKey == "" {
-			fmt.Println("ERROR: You must specify an encryption key to decrypt the seed with!")
+			fmt.Println("ERROR: You must specify an encryption key to decrypt the file with!")
 			os.Exit(1)
 		}
 
