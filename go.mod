@@ -5,7 +5,7 @@ go 1.21.3
 require (
 	github.com/bwmarrin/discordgo v0.27.2-0.20230704233747-e39e715086d2
 	github.com/go-playground/validator/v10 v10.19.0
-	github.com/infinitybotlist/iblfile v0.0.0-20240413073551-e2a8b13b7806
+	github.com/infinitybotlist/iblfile v0.0.0-20240413112910-43262ed5c7aa
 	github.com/jackc/pgtype v1.14.3
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/jackc/pgx/v5 v5.4.3
