@@ -662,6 +662,13 @@ var loadCmd = &cobra.Command{
 			}
 		}
 
+		// Seek to first bit
+		_, err = data.Seek(0, 0)
+
+		if err != nil {
+			panic(err)
+		}
+
 		// Load the file itself
 		var file *iblfile.AutoEncryptedFile_FullFile
 
