@@ -12,7 +12,7 @@ import (
 func IsSecret(tableName, columnName string) bool {
 	colArray := [2]string{tableName, columnName}
 
-	// TODO> Add secret columns here
+	// TODO: Add secret columns to database instead of hardcoding
 	secretCols := [][2]string{
 		{"*", "api_token"},
 		{"*", "webhook"},

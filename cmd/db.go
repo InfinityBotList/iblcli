@@ -5,15 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/InfinityBotList/ibldev/internal/agents/dbparser"
-	"github.com/InfinityBotList/ibldev/internal/downloader"
-	"github.com/InfinityBotList/ibldev/internal/links"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/infinitybotlist/iblfile"
 	"github.com/infinitybotlist/iblfile/encryptors/aes256"
@@ -606,52 +603,24 @@ var newCmd = &cobra.Command{
 
 var loadCmd = &cobra.Command{
 	Use:     "load FILENAME",
-	Example: "load latestseed/<backup file>/<seed file>",
-	Short:   "Loads a file to the database. You must specify either 'latestseed' or the path to a loadable db file",
+	Example: "load <backup file>/<seed file>",
+	Short:   "Loads a file to the database. You must provide the path to a loadable db file. You can find a database seed for Infinity List on Popplio.",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if os.Getenv("ALLOW_ROOT") != "true" {
-			// Check if user is root
-			if os.Geteuid() == 0 {
-				fmt.Println("ERROR: You must not run this command as root!")
-				os.Exit(1)
-			}
-		}
-
-		var data io.ReadSeeker
-
 		// Check args as to which file to use
 		filename := args[0]
 
-		assetsUrl := links.GetCdnURL() + "/dev"
+		// Open seed file
+		f, err := os.Open(filename)
 
-		if filename == "latestseed" {
-			// Download seedfile with progress bar
-			var err error
-			var buf []byte
-			buf, err = downloader.DownloadFileWithProgress(assetsUrl + "/seed.iblseed?n=" + crypto.RandString(12))
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to download seed file:", err)
-				os.Exit(1)
-			}
-
-			data = bytes.NewReader(buf)
-		} else {
-			// Open seed file
-			f, err := os.Open(filename)
-
-			if err != nil {
-				fmt.Println("ERROR: Failed to open seed file:", err)
-				os.Exit(1)
-			}
-
-			defer f.Close()
-
-			data = f
+		if err != nil {
+			fmt.Println("ERROR: Failed to open seed file:", err)
+			os.Exit(1)
 		}
 
-		fileType, err := iblfile.DeduceType(data, false)
+		defer f.Close()
+
+		fileType, err := iblfile.DeduceType(f, false)
 
 		if err != nil {
 			fmt.Println("ERROR: Failed to deduce file type:", err, ". Defaulting to NewAutoEncryptedFile_FullFile")
@@ -663,7 +632,7 @@ var loadCmd = &cobra.Command{
 		}
 
 		// Seek to first bit
-		_, err = data.Seek(0, 0)
+		_, err = f.Seek(0, 0)
 
 		if err != nil {
 			panic(err)
@@ -672,7 +641,7 @@ var loadCmd = &cobra.Command{
 		// Load the file itself
 		var file *iblfile.AutoEncryptedFile_FullFile
 
-		block, err := iblfile.QuickBlockParser(data)
+		block, err := iblfile.QuickBlockParser(f)
 
 		if err != nil {
 			panic("error reading metadata: " + err.Error())
@@ -697,7 +666,7 @@ var loadCmd = &cobra.Command{
 			}
 
 			pemEnc.PrivateKey = privKeyFileContents
-			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &pemEnc)
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &pemEnc)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to open auto encrypted file:", err)
@@ -712,14 +681,14 @@ var loadCmd = &cobra.Command{
 			}
 
 			aes256Enc.EncryptionKey = encKey
-			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &aes256Enc)
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &aes256Enc)
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to open auto encrypted file:", err)
 				os.Exit(1)
 			}
 		} else if string(block.Encryptor) == noencryptionEnc.ID() {
-			file, err = iblfile.OpenAutoEncryptedFile_FullFile(data, &noencryption.NoEncryptionSource{})
+			file, err = iblfile.OpenAutoEncryptedFile_FullFile(f, &noencryption.NoEncryptionSource{})
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to open auto encrypted file:", err)

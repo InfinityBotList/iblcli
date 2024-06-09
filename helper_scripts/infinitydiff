@@ -1,2 +1,0 @@
-#!/bin/bash
-pgquarrel --source-dbname=infinity --target-dbname=infinity__prodmarker

@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/InfinityBotList/ibldev/internal/downloader"
-	"github.com/InfinityBotList/ibldev/internal/links"
 	"github.com/fynelabs/selfupdate"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +31,13 @@ var updateCmd = &cobra.Command{
 		}
 
 		// Check if an update is even required
-		updCheckUrl := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/current_rev"
+		cdnUrl := "https://cdn.infinitybots.gg"
+
+		if os.Getenv("CDN_URL") != "" {
+			cdnUrl = os.Getenv("CDN_URL")
+		}
+
+		updCheckUrl := cdnUrl + "/dev/downloads/" + ProjectName + "/current_rev"
 		fmt.Println("Checking for updates (url: " + updCheckUrl)
 		currRev, err := downloader.DownloadFileWithProgress(updCheckUrl)
 
@@ -71,7 +76,7 @@ var updateCmd = &cobra.Command{
 			binFileName = "ibl.exe"
 		}
 
-		url := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
+		url := cdnUrl + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + binFileName
 
 		fmt.Println("Downloading latest version from:", url)
 
@@ -83,7 +88,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		if os.Getenv("NO_SHASUM") != "true" {
-			shasum := links.GetCdnURL() + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
+			shasum := cdnUrl + "/dev/downloads/" + ProjectName + "/" + runtime.GOOS + "/" + runtime.GOARCH + "/" + iblFile + ".sha512"
 
 			fmt.Println("Downloading shasum from:", shasum)
 
