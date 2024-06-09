@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/InfinityBotList/ibl/internal/api"
+	"github.com/InfinityBotList/ibldev/internal/api"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"

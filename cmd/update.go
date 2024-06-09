@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/InfinityBotList/ibl/internal/downloader"
-	"github.com/InfinityBotList/ibl/internal/links"
+	"github.com/InfinityBotList/ibldev/internal/downloader"
+	"github.com/InfinityBotList/ibldev/internal/links"
 	"github.com/fynelabs/selfupdate"
 	"github.com/spf13/cobra"
 )

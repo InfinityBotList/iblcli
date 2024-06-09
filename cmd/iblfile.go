@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/iblfile_legacyenc"
+	"github.com/InfinityBotList/ibldev/internal/iblfile_legacyenc"
 	"github.com/go-andiamo/splitter"
 	"github.com/infinitybotlist/iblfile"
 	"github.com/infinitybotlist/iblfile/encryptors/aes256"

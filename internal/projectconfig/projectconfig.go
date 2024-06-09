@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/InfinityBotList/ibl/internal/ui"
-	"github.com/InfinityBotList/ibl/types"
+	"github.com/InfinityBotList/ibldev/internal/ui"
+	"github.com/InfinityBotList/ibldev/types"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
 )

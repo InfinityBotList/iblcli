@@ -4,8 +4,8 @@
 
 BUILDTIME := $(shell date '+%Y-%m-%d | %H:%M:%S')
 BUILDREV := ${BUILDTIME}
-REPONAME := github.com/InfinityBotList/ibl
-PROJECTNAME := iblcli
+REPONAME := github.com/InfinityBotList/ibldev
+PROJECTNAME := ibldev
 GOFLAGS := -trimpath -ldflags="-s -w -X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)' -X '$(REPONAME)/cmd.ProjectName=$(PROJECTNAME)'"
 GOFLAGS_DBG := -trimpath -ldflags="-X '$(REPONAME)/cmd.BuildRev=$(BUILDREV)' -X '$(REPONAME)/cmd.BuildTime=$(BUILDTIME)'"
 CDN_PATH := /silverpelt/cdn/ibl/dev
@@ -31,11 +31,11 @@ publish:
 		mv -vf $$folder/ibl $$folder/ibl.exe; \
 	done
 
-	rm -rf $(CDN_PATH)/downloads/iblcli
-	mkdir -p $(CDN_PATH)/downloads/iblcli
-	mv -vf bin/* $(CDN_PATH)/downloads/iblcli
-	echo -n "$(BUILDREV)" > $(CDN_PATH)/downloads/iblcli/current_rev
-	echo -n "Infinity Bot List Developer Client.\nThis is a developer only client for managing our infrastructure (databases etc.). You probably want IBLCLI instead" > /silverpelt/cdn/ibl/dev/downloads/iblcli/description
+	rm -rf $(CDN_PATH)/downloads/ibldev $(CDN_PATH)/downloads/iblcli
+	mkdir -p $(CDN_PATH)/downloads/ibldev
+	mv -vf bin/* $(CDN_PATH)/downloads/ibldev
+	echo -n "$(BUILDREV)" > $(CDN_PATH)/downloads/ibldev/current_rev
+	echo -n "Infinity Bot List Developer Client.\nThis is a developer only client for managing our infrastructure (databases etc.). You probably want e.g. ibl-webhook-funnels instead for webhook funneling." > /silverpelt/cdn/ibl/dev/downloads/ibldev/description
 	chown -Rv ibl:ibl $(CDN_PATH)
 	rm -rf bin
 	

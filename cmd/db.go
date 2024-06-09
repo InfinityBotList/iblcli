@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/InfinityBotList/ibl/internal/agents/dbparser"
-	"github.com/InfinityBotList/ibl/internal/downloader"
-	"github.com/InfinityBotList/ibl/internal/links"
+	"github.com/InfinityBotList/ibldev/internal/agents/dbparser"
+	"github.com/InfinityBotList/ibldev/internal/downloader"
+	"github.com/InfinityBotList/ibldev/internal/links"
 	"github.com/infinitybotlist/eureka/crypto"
 	"github.com/infinitybotlist/iblfile"
 	"github.com/infinitybotlist/iblfile/encryptors/aes256"

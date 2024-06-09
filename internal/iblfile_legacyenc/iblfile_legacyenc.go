@@ -1,4 +1,4 @@
-// From https://github.com/InfinityBotList/iblfile/blob/7d02b1ba186e0d6211330ae3d5442521345f90c1/consts.go
+// From https://github.com/infinitybotlist/iblfile/blob/7d02b1ba186e0d6211330ae3d5442521345f90c1/consts.go
 package iblfile_legacyenc
 
 import (
