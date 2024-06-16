@@ -9,34 +9,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func IsSecret(tableName, columnName string) bool {
-	colArray := [2]string{tableName, columnName}
-
-	// TODO: Add secret columns to database instead of hardcoding
-	secretCols := [][2]string{
-		{"*", "api_token"},
-		{"*", "webhook"},
-		{"*", "web_auth"},
-		{"*", "unique_clicks"},
-		{"servers", "invite"},
-	}
-
-	for _, col := range secretCols {
-		if colArray == col {
-			return true
-		}
-
-		if col[0] == "*" && col[1] == colArray[1] {
-			return true
-		}
-
-		if col[1] == "*" && col[0] == colArray[0] {
-			return true
-		}
-	}
-	return false
-}
-
 type Schema struct {
 	TableName  string  `json:"table_name"`
 	ColumnName string  `json:"column_name"`
@@ -45,7 +17,6 @@ type Schema struct {
 	Array      bool    `json:"array"`
 	DefaultSQL *string `json:"default_sql"`
 	DefaultVal any     `json:"default_val"`
-	Secret     bool    `json:"secret"`
 }
 
 type schemaData struct {
@@ -139,8 +110,6 @@ WHERE table_schema = 'public' order by table_name, ordinal_position
 		} else {
 			schema.Type = data.DataType
 		}
-
-		schema.Secret = IsSecret(data.TableName, data.ColumnName)
 
 		result = append(result, schema)
 	}
