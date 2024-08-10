@@ -991,7 +991,7 @@ var loadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			_, err = conn.Exec(ctx, "CREATE TABLE seed_info IF NOT EXISTS (nonce TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL)")
+			_, err = conn.Exec(ctx, "CREATE TABLE IF NOT EXISTS seed_info (nonce TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL)")
 
 			if err != nil {
 				fmt.Println("ERROR: Failed to create seed_info table:", err)
